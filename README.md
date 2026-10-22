@@ -93,7 +93,9 @@ npm run dev            # http://localhost:4000/api/health
 | Linear history required | Squash or rebase merges keep the history readable |
 | Rules enforced for administrators | The rules apply to everyone, including repository owners |
 | Force pushes and branch deletion blocked | Shared history cannot be rewritten or lost |
-| Required status checks *(enabled once CI is in place)* | Code that fails lint, type-check, tests or the Docker build cannot reach `main` |
+| **Backend checks** status check required | The CI job must pass, so code that fails lint, type-check, tests or the build cannot reach `main` |
+
+Branches are **not** required to be up to date with `main` before merging. With four people merging in parallel, that rule would force a re-run on every open pull request each time `main` moves. Each CI run still tests the pull request merged with `main` as it stood when the run started.
 
 ### Branch Workflow
 
