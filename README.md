@@ -79,6 +79,28 @@ npm run dev            # http://localhost:4000/api/health
 
 [GitHub Actions](.github/workflows/ci.yml) runs on every pull request to `main` and every push to `main`. The **Backend checks** job installs dependencies, then lints, type-checks, tests and builds the API. A pull request cannot merge until this job passes.
 
+## Branch Protection
+
+`main` is protected so every change is reviewed and the branch stays deployable.
+
+| Rule | Why it matters |
+| --- | --- |
+| Pull request required before merging | No direct pushes; every change is visible and reviewable |
+| 1 approving review required | A second person catches bugs and shares knowledge of the code |
+| Stale approvals dismissed on new commits | An approval only counts for the code that was actually reviewed |
+| Code owner review required | A listed owner from [`CODEOWNERS`](.github/CODEOWNERS) signs off on every change |
+| Conversation resolution required | Review comments are addressed before merging, not ignored |
+| Linear history required | Squash or rebase merges keep the history readable |
+| Rules enforced for administrators | The rules apply to everyone, including repository owners |
+| Force pushes and branch deletion blocked | Shared history cannot be rewritten or lost |
+| Required status checks *(enabled once CI is in place)* | Code that fails lint, type-check, tests or the Docker build cannot reach `main` |
+
+### Branch Workflow
+
+1. Branch from an up-to-date `main` using a prefix: `feature/`, `fix/`, `chore/` or `docs/` (e.g. `feature/12-monthly-budget`).
+2. Open a pull request into `main` that links its issue (`Closes #12`).
+3. Get one approval, resolve all review comments, then squash and merge.
+
 ## License
 
 [MIT](LICENSE)
