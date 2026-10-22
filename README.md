@@ -41,7 +41,43 @@ Hoard lets users record expenses by payment method in Rwandan francs, set a mont
 
 ## Getting Started
 
-Setup instructions will be added as the frontend and backend are built.
+### Prerequisites
+
+- Node.js 20 or newer
+- npm 10 or newer
+
+### Run the API locally
+
+```bash
+git clone https://github.com/El-Gibbor/Hoard.git
+cd Hoard/backend
+npm install
+cp .env.example .env
+npm run dev            # http://localhost:4000/api/health
+```
+
+### Backend Scripts
+
+| Script | Purpose |
+| --- | --- |
+| `npm run dev` | Start the API with hot reload |
+| `npm run build` | Compile TypeScript to `dist/` |
+| `npm start` | Run the compiled API |
+| `npm run lint` | Lint with ESLint |
+| `npm run typecheck` | Type-check without emitting files |
+| `npm test` | Run the test suite with Vitest and Supertest |
+
+### Environment Variables
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `NODE_ENV` | No | `development`, `production` or `test`. Defaults to `development`. |
+| `PORT` | No | Port the API listens on. Defaults to `4000`. |
+| `CLIENT_ORIGIN` | No | Allowed frontend origin(s), comma-separated. Defaults to `http://localhost:5173`. |
+
+## Continuous Integration
+
+[GitHub Actions](.github/workflows/ci.yml) runs on every pull request to `main` and every push to `main`. The **Backend checks** job installs dependencies, then lints, type-checks, tests and builds the API. A pull request cannot merge until this job passes.
 
 ## License
 
