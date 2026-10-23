@@ -1,0 +1,67 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum PaymentMethod {
+  MTN_MOMO
+  AIRTEL_MONEY
+  CASH
+  CARD
+  BANK_TRANSFER
+  OTHER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(USER)
+  createdAt    DateTime @default(now())
+  expenses     Expense[]
+  budgets      Budget[]
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  isDefault Boolean   @default(false)
+  expenses  Expense[]
+}
+
+model Expense {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId    String
+  category      Category      @relation(fields: [categoryId], references: [id])
+  title         String
+  amount        Int
+  date          DateTime
+  paymentMethod PaymentMethod
+  notes         String?
+  createdAt     DateTime      @default(now())
+
+  @@index([userId, date])
+}
+
+model Budget {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month  String
+  amount Int
+
+  @@unique([userId, month])
+}
