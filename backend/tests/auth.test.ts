@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { app } from '../src/app';
 import { prisma } from '../src/lib/prisma';
+import { hashPassword } from '../src/utils/password';
 
 const createdEmails: string[] = [];
 let sequence = 0;
@@ -226,5 +227,26 @@ describe('authentication', () => {
 
     expect(res.status).toBe(401);
     expect(res.body.error.message).toBe(invalidToken);
+  });
+
+  it('lets an admin call an admin-only route', async () => {
+    const email = uniqueEmail('admin');
+    await prisma.user.create({
+      data: {
+        name: 'Hoard Operator',
+        email,
+        passwordHash: await hashPassword('password1'),
+        role: 'ADMIN',
+      },
+    });
+    const login = await request(app).post('/api/auth/login').send({ email, password: 'password1' });
+
+    const res = await request(app)
+      .get('/api/admin-check')
+      .set('Authorization', `Bearer ${login.body.token}`);
+
+    expect(login.body.user.role).toBe('ADMIN');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
   });
 });
