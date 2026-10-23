@@ -188,7 +188,7 @@ describe('authentication', () => {
     });
 
     const res = await request(app)
-      .get('/api/admin-check')
+      .get('/api/admin/insights')
       .set('Authorization', `Bearer ${registered.body.token}`);
 
     expect(res.status).toBe(403);
@@ -256,11 +256,11 @@ describe('authentication', () => {
     const login = await request(app).post('/api/auth/login').send({ email, password: 'password1' });
 
     const res = await request(app)
-      .get('/api/admin-check')
+      .get('/api/admin/insights')
       .set('Authorization', `Bearer ${login.body.token}`);
 
     expect(login.body.user.role).toBe('ADMIN');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ ok: true });
+    expect(res.body.totals).toBeDefined();
   });
 });
