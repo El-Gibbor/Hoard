@@ -243,8 +243,8 @@ Branches are **not** required to be up to date with `main` before merging. With 
 ### Branch Workflow
 
 1. Branch from an up-to-date `main` using a prefix: `feature/`, `fix/`, `chore/` or `docs/` (e.g. `feature/12-monthly-budget`).
-2. Open a pull request into `main` that links its issue (`Closes #12`).
-3. Get one approval, resolve all review comments, then squash and merge.
+2. Open a pull request into `main`. The [pull request template](.github/pull_request_template.md) asks for a summary, test steps and `Closes #N`, which closes the issue and moves its board card when the pull request merges.
+3. Get one approval, resolve all review comments, then squash and merge. The squash commit keeps the plain pull request title.
 
 ## Project Board
 
