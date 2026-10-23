@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { env } from './config/env';
 import { requireAuth, requireRole } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
+import { adminRouter } from './routes/admin';
 import { authRouter } from './routes/auth';
 import { budgetsRouter } from './routes/budgets';
 import { categoriesRouter } from './routes/categories';
@@ -22,6 +23,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/expenses', expensesRouter);
 app.use('/api/budgets', budgetsRouter);
+app.use('/api/admin', adminRouter);
 
 // Issues #9 and #10 will use requireRole. Until then the tests call this route.
 if (env.NODE_ENV === 'test') {

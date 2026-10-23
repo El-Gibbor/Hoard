@@ -81,6 +81,7 @@ Expense and category routes require `Authorization: Bearer <token>`. Amounts are
 - `GET /api/expenses` lists that user's expenses, newest date first. `?month=YYYY-MM` limits the list to one month.
 - `PUT /api/budgets/2026-10` with `{ "amount": 150000 }` creates or updates that month's budget and returns the summary.
 - `GET /api/budgets/2026-10` returns the summary. It is `404` when that month has no budget.
+- `GET /api/admin/insights` is admin only. It returns platform totals, spending per category with the top and bottom 5, and the 10 latest expenses and sign-ups. Other roles get `403`.
 
 Example expense:
 

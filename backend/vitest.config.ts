@@ -5,6 +5,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    // Files share one database, so running them in parallel makes before/after totals unreliable
+    fileParallelism: false,
     globalSetup: ['./tests/global-setup.ts'],
     env: {
       NODE_ENV: 'test',
