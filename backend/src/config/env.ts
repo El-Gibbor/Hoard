@@ -9,6 +9,8 @@ const envSchema = z.object({
   ADMIN_EMAIL: z.string().optional(),
   ADMIN_NAME: z.string().optional(),
   ADMIN_PASSWORD: z.string().optional(),
+  JWT_SECRET: z.string().min(32),
+  JWT_EXPIRES_IN: z.string().default('1d'),
 });
 
 // Stop the server if env vars are present but invalid
