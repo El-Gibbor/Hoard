@@ -27,6 +27,7 @@ export const toPublicUser = (user: PublicUser): PublicUser => ({
 
 const signToken = (user: { id: string; role: Role }): string =>
   jwt.sign({ sub: user.id, role: user.role }, env.JWT_SECRET, {
+    // jsonwebtoken types expiresIn as a ms StringValue, not a plain string
     expiresIn: env.JWT_EXPIRES_IN as SignOptions['expiresIn'],
   });
 
