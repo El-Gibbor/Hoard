@@ -79,6 +79,20 @@ describe('authentication', () => {
     expect(res.body.error.details.email).toBeDefined();
   });
 
+  it('stores the email trimmed and lowercased on register', async () => {
+    const email = uniqueEmail('amina');
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'Amina Keza',
+      email: `  ${email.replace('amina', 'Amina').replace('example.com', 'Example.COM')} `,
+      password: 'password1',
+    });
+    const stored = await prisma.user.findUnique({ where: { email } });
+
+    expect(res.status).toBe(201);
+    expect(res.body.user.email).toBe(email);
+    expect(stored).not.toBeNull();
+  });
+
   it('logs in a registered user', async () => {
     const email = uniqueEmail('login');
     await request(app).post('/api/auth/register').send({
