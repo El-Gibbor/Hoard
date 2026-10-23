@@ -20,6 +20,25 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hoard
+          POSTGRES_PASSWORD: hoard
+          POSTGRES_DB: hoard_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hoard -d hoard_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://hoard:hoard@localhost:5432/hoard_test
+      ADMIN_EMAIL: admin@hoard.test
+      ADMIN_NAME: Hoard Admin
+      ADMIN_PASSWORD: test-admin-password
     steps:
       - uses: actions/checkout@v4
 
@@ -31,6 +50,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Apply database migrations
+        run: npm run db:deploy
 
       - name: Lint
         run: npm run lint

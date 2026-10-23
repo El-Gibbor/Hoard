@@ -5,6 +5,10 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
   CLIENT_ORIGIN: z.string().default('http://localhost:5173'),
+  DATABASE_URL: z.string().min(1),
+  ADMIN_EMAIL: z.string().optional(),
+  ADMIN_NAME: z.string().optional(),
+  ADMIN_PASSWORD: z.string().optional(),
 });
 
 // Stop the server if env vars are present but invalid

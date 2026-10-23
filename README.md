@@ -45,16 +45,33 @@ Hoard lets users record expenses by payment method in Rwandan francs, set a mont
 
 - Node.js 20 or newer
 - npm 10 or newer
+- Docker, for the local Postgres database. Compose publishes it on port 5433 so it does not clash with another Postgres already using 5432.
 
 ### Run the API locally
 
 ```bash
 git clone https://github.com/El-Gibbor/Hoard.git
-cd Hoard/backend
-npm install
+cd Hoard
+docker compose up -d db
+cd backend
 cp .env.example .env
+npm install
+npm run db:deploy
+npm run db:seed
 npm run dev            # http://localhost:4000/api/health
 ```
+
+`npm run db:seed` loads the default spending categories and one admin account. Set `ADMIN_PASSWORD` in `.env` before seeding. The script can be run again without creating duplicates.
+
+### Run the tests
+
+Start Postgres first (`docker compose up -d db` from the repository root). Then, from `backend/`:
+
+```bash
+npm test
+```
+
+Tests use a separate database, `hoard_test`, and create it if it is missing. They do not write to the `hoard` development database. The suite applies migrations, then checks the health route and that the seed can run twice.
 
 ### Backend Scripts
 
@@ -66,6 +83,10 @@ npm run dev            # http://localhost:4000/api/health
 | `npm run lint` | Lint with ESLint |
 | `npm run typecheck` | Type-check without emitting files |
 | `npm test` | Run the test suite with Vitest and Supertest |
+| `npm run db:migrate` | Create and apply a development migration |
+| `npm run db:deploy` | Apply committed migrations |
+| `npm run db:seed` | Seed default categories and the admin account |
+| `npm run db:generate` | Generate the Prisma client |
 
 ### Environment Variables
 
@@ -74,10 +95,14 @@ npm run dev            # http://localhost:4000/api/health
 | `NODE_ENV` | No | `development`, `production` or `test`. Defaults to `development`. |
 | `PORT` | No | Port the API listens on. Defaults to `4000`. |
 | `CLIENT_ORIGIN` | No | Allowed frontend origin(s), comma-separated. Defaults to `http://localhost:5173`. |
+| `DATABASE_URL` | Yes | Postgres connection string. The example points at the Compose database. |
+| `ADMIN_EMAIL` | For seed | Email of the seeded admin account. |
+| `ADMIN_NAME` | For seed | Name of the seeded admin account. |
+| `ADMIN_PASSWORD` | For seed | Password of the seeded admin account. Never commit a real password. |
 
 ## Continuous Integration
 
-[GitHub Actions](.github/workflows/ci.yml) runs on every pull request to `main` and every push to `main`. The **Backend checks** job installs dependencies, then lints, type-checks, tests and builds the API. A pull request cannot merge until this job passes.
+[GitHub Actions](.github/workflows/ci.yml) runs on every pull request to `main` and every push to `main`. The **Backend checks** job starts Postgres, installs dependencies, applies migrations, then lints, type-checks, tests and builds the API. A pull request cannot merge until this job passes.
 
 ## Branch Protection
 
