@@ -5,6 +5,7 @@ import { env } from './config/env';
 import { requireAuth, requireRole } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { authRouter } from './routes/auth';
+import { budgetsRouter } from './routes/budgets';
 import { categoriesRouter } from './routes/categories';
 import { expensesRouter } from './routes/expenses';
 import { healthRouter } from './routes/health';
@@ -20,6 +21,7 @@ app.use('/api/health', healthRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/expenses', expensesRouter);
+app.use('/api/budgets', budgetsRouter);
 
 // Issues #9 and #10 will use requireRole. Until then the tests call this route.
 if (env.NODE_ENV === 'test') {
