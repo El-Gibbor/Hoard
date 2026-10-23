@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+*.local
 *.pem
 *.key
 *.crt
@@ -12,6 +13,7 @@ node_modules/
 
 # ---------- Build output ----------
 dist/
+dist-ssr/
 build/
 coverage/
 *.tsbuildinfo
@@ -47,6 +49,7 @@ pgdata/
 .vscode/*
 !.vscode/extensions.json
 .idea/
-*.swp
+*.sw?
+*.suo
 .DS_Store
 Thumbs.db
