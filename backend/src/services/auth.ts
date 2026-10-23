@@ -3,9 +3,9 @@ import type { SignOptions } from 'jsonwebtoken';
 import type { Role } from '../generated/prisma/client';
 import { env } from '../config/env';
 import { prisma } from '../lib/prisma';
-import type { LoginInput, RegisterInput } from '../schemas/auth';
 import { HttpError } from '../utils/http-error';
 import { hashPassword, verifyPassword } from '../utils/password';
+import type { LoginInput, RegisterInput } from '../schemas/auth';
 
 const INVALID_LOGIN = 'Invalid email or password';
 
