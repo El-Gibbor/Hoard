@@ -12,6 +12,8 @@ export default defineConfig({
       ADMIN_EMAIL: 'admin@hoard.test',
       ADMIN_NAME: 'Hoard Admin',
       ADMIN_PASSWORD: 'test-admin-password',
+      JWT_SECRET: 'test-jwt-secret-must-be-32-characters',
+      JWT_EXPIRES_IN: '1d',
     },
   },
 });

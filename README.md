@@ -63,6 +63,15 @@ npm run dev            # http://localhost:4000/api/health
 
 `npm run db:seed` loads the default spending categories and one admin account. Set `ADMIN_PASSWORD` in `.env` before seeding. The script can be run again without creating duplicates.
 
+### Accounts
+
+- `POST /api/auth/register` with name, email and password returns `201` and a token.
+- `POST /api/auth/login` with email and password returns `200` and a token. A wrong email and a wrong password return the same `401`.
+- `GET /api/auth/me` with an `Authorization: Bearer` token returns the signed-in user.
+- Sign-out is handled by the client, which discards the token. There is no sign-out endpoint.
+
+Responses never include the password hash. Set `JWT_SECRET` in `.env` before starting the API. It must be at least 32 characters.
+
 ### Run the tests
 
 Start Postgres first (`docker compose up -d db` from the repository root). Then, from `backend/`:
@@ -71,7 +80,7 @@ Start Postgres first (`docker compose up -d db` from the repository root). Then,
 npm test
 ```
 
-Tests use a separate database, `hoard_test`, and create it if it is missing. They do not write to the `hoard` development database. The suite applies migrations, then checks the health route and that the seed can run twice.
+Tests use a separate database, `hoard_test`, and create it if it is missing. They do not write to the `hoard` development database. The suite applies migrations, then checks the health route, the seed, and sign-up and sign-in.
 
 ### Backend Scripts
 
@@ -99,6 +108,8 @@ Tests use a separate database, `hoard_test`, and create it if it is missing. The
 | `ADMIN_EMAIL` | For seed | Email of the seeded admin account. |
 | `ADMIN_NAME` | For seed | Name of the seeded admin account. |
 | `ADMIN_PASSWORD` | For seed | Password of the seeded admin account. Never commit a real password. |
+| `JWT_SECRET` | Yes | Secret used to sign login tokens. At least 32 characters. |
+| `JWT_EXPIRES_IN` | No | Token lifetime. Defaults to `1d`. |
 
 ## Continuous Integration
 
