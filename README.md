@@ -22,6 +22,20 @@ Hoard lets users record expenses by payment method in Rwandan francs, set a mont
 | **Young professionals** | Early-career workers aged 18–32, often paid into a MoMo wallet | See where money goes across MoMo, cash and bank |
 | **Admins** | Platform operators | Manage spending categories and view platform-wide insights |
 
+## Value Proposition
+
+Hoard is built for people whose money moves through a MoMo wallet and their pocket, not a bank account.
+
+| What young Rwandans use today | Where it falls short | What Hoard does instead |
+| --- | --- | --- |
+| Budgeting apps that import bank statements | About 78% of adults are not banked, so there is nothing to import | Expenses are logged directly, with no bank account or statement needed |
+| MoMo and Airtel Money transaction history | One wallet at a time, no categories, no budget, and cash is missing | MTN MoMo, Airtel Money, cash, card and bank transfer sit side by side in one monthly view |
+| Notebooks and spreadsheets | Totals are worked out by hand, usually after the money has run out | Spending is totalled automatically against the month's budget |
+| Generic finance apps | Built around dollars or euros and Western spending categories | Whole Rwandan francs, and local categories such as Airtime & Data and Savings Group (Ikimina) |
+
+- **One clear signal, early.** Instead of raw numbers, the budget shows *within*, *approaching* (from 80% spent) or *over*, so a student sees the warning while there is still time to adjust.
+- **Light and web-based.** It runs in a phone browser on mobile data, with nothing to install.
+
 ## Core Features
 
 1. **Expense tracking:** log, edit and delete expenses in RWF with a category, date, payment method (MTN MoMo, Airtel Money, cash, card, bank transfer) and notes. Search, filter and sort them.
@@ -104,6 +118,48 @@ Example expense:
 | `approaching` | From 80% up to and including 100% |
 | `over` | More than 100% is spent |
 
+### Try the API with curl
+
+With the API running (`npm run dev`), paste these into a second terminal. They use Node, which is already a prerequisite, to read values out of the JSON responses.
+
+```bash
+API=http://localhost:4000/api
+MONTH=$(date +%Y-%m)
+json() { node -pe "const v = JSON.parse(require('fs').readFileSync(0)); $1"; }
+
+# Sign up and keep the token. If the email is already registered, sign in instead (see below).
+TOKEN=$(curl -s -X POST "$API/auth/register" -H 'Content-Type: application/json' \
+  -d '{"name":"Amina Keza","email":"amina@example.com","password":"password1"}' | json 'v.token')
+
+# Sign in
+TOKEN=$(curl -s -X POST "$API/auth/login" -H 'Content-Type: application/json' \
+  -d '{"email":"amina@example.com","password":"password1"}' | json 'v.token')
+
+# Who am I?
+curl -s -w '\n' "$API/auth/me" -H "Authorization: Bearer $TOKEN"
+
+# Pick a category, then log an expense paid with MTN MoMo
+CATEGORY=$(curl -s "$API/categories" -H "Authorization: Bearer $TOKEN" \
+  | json 'v.find((c) => c.name === "Airtime & Data").id')
+curl -s -w '\n' -X POST "$API/expenses" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d "{\"title\":\"Airtime\",\"amount\":1500,\"categoryId\":\"$CATEGORY\",\"date\":\"$(date +%F)\",\"paymentMethod\":\"MTN_MOMO\"}"
+
+# List this month's expenses
+curl -s -w '\n' "$API/expenses?month=$MONTH" -H "Authorization: Bearer $TOKEN"
+
+# Set this month's budget, then read the summary with its within / approaching / over status
+curl -s -w '\n' -X PUT "$API/budgets/$MONTH" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"amount":1800}'
+curl -s -w '\n' "$API/budgets/$MONTH" -H "Authorization: Bearer $TOKEN"
+
+# Admin insights: sign in as the seeded admin (ADMIN_EMAIL and ADMIN_PASSWORD from .env)
+ADMIN_TOKEN=$(curl -s -X POST "$API/auth/login" -H 'Content-Type: application/json' \
+  -d '{"email":"admin@example.com","password":"change-me"}' | json 'v.token')
+curl -s -w '\n' "$API/admin/insights" -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+With a 1,500 RWF expense against a 1,800 RWF budget, the summary shows `"percentUsed": 83.3` and `"status": "approaching"`. Calling the admin route with Amina's token returns `403`.
+
 ### Run the tests
 
 Start Postgres first (`docker compose up -d db` from the repository root). Then, from `backend/`:
@@ -170,6 +226,18 @@ Branches are **not** required to be up to date with `main` before merging. With 
 1. Branch from an up-to-date `main` using a prefix: `feature/`, `fix/`, `chore/` or `docs/` (e.g. `feature/12-monthly-budget`).
 2. Open a pull request into `main` that links its issue (`Closes #12`).
 3. Get one approval, resolve all review comments, then squash and merge.
+
+## Project Board
+
+Work is planned on the [Hoard GitHub Projects board](https://github.com/users/El-Gibbor/projects/1). Each item is an issue with a user story, acceptance criteria, labels, an assignee and a milestone, and moves through **Backlog**, **In Progress** and **Done**. Milestones follow the course deadlines:
+
+| Milestone | Focus |
+| --- | --- |
+| Formative 1 | Ideation, planning and the initial codebase |
+| Formative 2 | CI pipeline for a containerised application |
+| Formative 3 | Infrastructure as code and DevSecOps |
+
+Pull requests close their issue with `Closes #N`, so the board updates when work merges.
 
 ## License
 
