@@ -1,4 +1,5 @@
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
+import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { app } from '../src/app';
 import { prisma } from '../src/lib/prisma';
@@ -14,6 +15,17 @@ const uniqueEmail = (label: string): string => {
 };
 
 const invalidLogin = 'Invalid email or password';
+const invalidToken = 'Missing or invalid token';
+const jwtSecret = String(process.env.JWT_SECRET);
+
+const register = async (email: string) => {
+  const res = await request(app).post('/api/auth/register').send({
+    name: 'Amina Keza',
+    email,
+    password: 'password1',
+  });
+  return { id: res.body.user.id as string, token: res.body.token as string };
+};
 
 describe('authentication', () => {
   afterEach(async () => {
@@ -166,5 +178,53 @@ describe('authentication', () => {
 
     expect(res.status).toBe(403);
     expect(res.body.error.message).toBe('Forbidden');
+  });
+
+  it('returns 401 when the token has expired', async () => {
+    const user = await register(uniqueEmail('expired'));
+    const expired = jwt.sign({ sub: user.id, role: 'USER' }, jwtSecret, { expiresIn: -10 });
+
+    const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${expired}`);
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.message).toBe(invalidToken);
+  });
+
+  it('returns 401 when the token is signed with a different secret', async () => {
+    const user = await register(uniqueEmail('foreign-secret'));
+    const foreign = jwt.sign({ sub: user.id, role: 'USER' }, 'another-secret-that-is-at-least-32-chars');
+
+    const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${foreign}`);
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.message).toBe(invalidToken);
+  });
+
+  it('returns 401 when the authorisation header is not a Bearer token', async () => {
+    const res = await request(app).get('/api/auth/me').set('Authorization', 'Basic abc');
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.message).toBe(invalidToken);
+  });
+
+  it('returns 401 when the token role is not USER or ADMIN', async () => {
+    const user = await register(uniqueEmail('unknown-role'));
+    const token = jwt.sign({ sub: user.id, role: 'SUPERUSER' }, jwtSecret);
+
+    const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.message).toBe(invalidToken);
+  });
+
+  it('returns 401 for the current user when the user has been deleted', async () => {
+    const email = uniqueEmail('deleted');
+    const user = await register(email);
+    await prisma.user.delete({ where: { email } });
+
+    const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${user.token}`);
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.message).toBe(invalidToken);
   });
 });
