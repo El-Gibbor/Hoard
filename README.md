@@ -112,7 +112,7 @@ Start Postgres first (`docker compose up -d db` from the repository root). Then,
 npm test
 ```
 
-Tests use a separate database, `hoard_test`, and create it if it is missing. They do not write to the `hoard` development database. The suite applies migrations, then checks the health route, the seed, sign-up and sign-in, expenses and budgets.
+Tests use a separate database, `hoard_test`, and create it if it is missing. They do not write to the `hoard` development database. The suite applies migrations, then checks the health route, the seed, sign-up and sign-in, expenses and budgets. Authentication tests also cover password hashing, expired, wrongly signed or malformed tokens, deleted users and admin-only routes.
 
 ### Backend Scripts
 
