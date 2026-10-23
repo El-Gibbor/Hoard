@@ -74,13 +74,11 @@ Responses never include the password hash. Set `JWT_SECRET` in `.env` before sta
 
 ### API
 
-Expense, category and budget routes require `Authorization: Bearer <token>`. Amounts are whole Rwandan francs.
+Expense and category routes require `Authorization: Bearer <token>`. Amounts are whole Rwandan francs.
 
 - `GET /api/categories` returns every category, sorted by name, with Uncategorized last.
 - `POST /api/expenses` records an expense for the signed-in user and returns `201`.
 - `GET /api/expenses` lists that user's expenses, newest date first. `?month=YYYY-MM` limits the list to one month.
-- `PUT /api/budgets/2026-10` with `{ "amount": 150000 }` creates or updates that month's budget and returns the summary.
-- `GET /api/budgets/2026-10` returns the summary. It is `404` when that month has no budget.
 
 Example expense:
 
@@ -95,14 +93,6 @@ Example expense:
 }
 ```
 
-`spent` is calculated from that user's expenses in the month, so the status changes as soon as an expense is added.
-
-| Status | When |
-| --- | --- |
-| `within` | Less than 80% of the budget is spent |
-| `approaching` | From 80% up to and including 100% |
-| `over` | More than 100% is spent |
-
 ### Run the tests
 
 Start Postgres first (`docker compose up -d db` from the repository root). Then, from `backend/`:
@@ -111,7 +101,7 @@ Start Postgres first (`docker compose up -d db` from the repository root). Then,
 npm test
 ```
 
-Tests use a separate database, `hoard_test`, and create it if it is missing. They do not write to the `hoard` development database. The suite applies migrations, then checks the health route, the seed, sign-up and sign-in, expenses and budgets.
+Tests use a separate database, `hoard_test`, and create it if it is missing. They do not write to the `hoard` development database. The suite applies migrations, then checks the health route, the seed, sign-up and sign-in, and expenses.
 
 ### Backend Scripts
 
