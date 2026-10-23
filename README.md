@@ -86,6 +86,25 @@ npm run dev            # http://localhost:4000/api/health
 
 Responses never include the password hash. Set `JWT_SECRET` in `.env` before starting the API. It must be at least 32 characters.
 
+### Run the frontend
+
+Start the API first. In a second terminal, from the repository root:
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev            # http://localhost:5173
+```
+
+`VITE_API_URL` in `frontend/.env` points at the API. Sign-up and sign-in use that API. Sign-out stays in the browser: the app deletes the token. There is no sign-out endpoint.
+
+From `frontend/`:
+
+```bash
+npm run lint && npm run typecheck && npm test && npm run build
+```
+
 ### API
 
 Expense and category routes require `Authorization: Bearer <token>`. Amounts are whole Rwandan francs.
