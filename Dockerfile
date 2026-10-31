@@ -1,34 +1,55 @@
 # syntax=docker/dockerfile:1
 # Hoard API image. Build from the repository root: docker build -t hoard-api .
+# Stages: deps -> source -> migrate (one-off migrations and seed) and build -> runtime (the API)
+
+# Placeholder only so Prisma can load its config during generate; nothing connects to it
+ARG BUILD_DATABASE_URL=postgresql://build:build@localhost:5432/build
 
 # ---------- Stage 1: install dependencies ----------
 # Exact version plus digest, so every build starts from the same base image
 FROM node:22.23.4-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da AS deps
 
+# Re-declared because ARG values do not carry into a stage automatically
+ARG BUILD_DATABASE_URL
+
 # All later paths are relative to the backend app folder
 WORKDIR /app
-
-# Prisma only reads this to load its config during `prisma generate`; nothing connects to it
-ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 
 # Manifests and Prisma files first, so dependencies are cached until one of these changes
 COPY backend/package.json backend/package-lock.json backend/prisma.config.ts ./
 COPY backend/prisma ./prisma
 
-# Clean install from the lockfile; the postinstall script generates the Prisma client
-RUN --mount=type=cache,target=/root/.npm npm ci
+# Clean install from the lockfile; the URL is scoped to this command so it never lands in the image environment
+RUN --mount=type=cache,target=/root/.npm DATABASE_URL=$BUILD_DATABASE_URL npm ci
 
-# ---------- Stage 2: compile TypeScript ----------
-FROM deps AS build
+# ---------- Stage 2: add the application source ----------
+FROM deps AS source
+ARG BUILD_DATABASE_URL
 
-# Application source and compiler settings, copied after dependencies so code edits keep the install cached
+# Compiler settings and source, copied after dependencies so code edits keep the install cached
 COPY backend/tsconfig.json backend/tsconfig.build.json ./
 COPY backend/src ./src
+
+# Regenerate the Prisma client so a stale local src/generated folder can never end up in the image
+RUN DATABASE_URL=$BUILD_DATABASE_URL npx prisma generate
+
+# ---------- Stage 3: migrations (used by the compose migrate service) ----------
+# Keeps the Prisma CLI and tsx, which the lean runtime image does not have
+FROM source AS migrate
+
+# Runs as the unprivileged node user like the API; DATABASE_URL is supplied at run time
+USER node
+
+# Applies pending migrations, then exits; run `npm run db:seed` with this image to seed
+CMD ["npx", "prisma", "migrate", "deploy"]
+
+# ---------- Stage 4: compile TypeScript ----------
+FROM source AS build
 
 # Compile to dist/, then drop dev dependencies so only runtime packages are copied forward
 RUN npm run build && npm prune --omit=dev
 
-# ---------- Stage 3: runtime ----------
+# ---------- Stage 5: runtime (default target) ----------
 # Same base as the build stages, so the compiled bcrypt binary stays compatible
 FROM node:22.23.4-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da AS runtime
 
@@ -53,5 +74,5 @@ EXPOSE 4000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 4000) + '/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
 
-# Exec form, so Node receives stop signals directly and shuts down cleanly
+# Exec form makes Node the main process, so the SIGTERM handler in server.ts receives docker stop directly
 CMD ["node", "dist/server.js"]
