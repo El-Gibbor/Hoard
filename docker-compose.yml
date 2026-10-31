@@ -64,7 +64,14 @@ services:
     # Published so the API can also be called directly, e.g. with the README curl walkthrough
     ports:
       - '${API_PORT:-4000}:4000'
-    # Starts only once the schema exists; the image's own HEALTHCHECK reports readiness
+    # Same probe as the image HEALTHCHECK, stated here so the readiness rule is visible in one file
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:4000/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Starts only once the schema exists
     depends_on:
       db:
         condition: service_healthy
@@ -81,6 +88,13 @@ services:
     restart: unless-stopped
     ports:
       - '${WEB_PORT:-8080}:8080'
+    # nginx answers /healthz itself, so this reports the web server even while the api restarts
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8080/healthz']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     depends_on:
       api:
         condition: service_healthy
