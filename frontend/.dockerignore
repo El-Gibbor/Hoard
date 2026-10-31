@@ -1,0 +1,43 @@
+# Patterns are relative to frontend/, the build context of the web image.
+
+# ---------- Dependencies and build output ----------
+# The image installs and bundles these itself.
+node_modules
+dist
+dist-ssr
+coverage
+*.tsbuildinfo
+.vite
+
+# ---------- Secrets ----------
+# Example files stay so the variable names remain visible.
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.key
+*.crt
+
+# ---------- Editor, OS and logs ----------
+# Local tooling files the build never reads.
+.vscode
+.idea
+*.sw?
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+.eslintcache
+
+# ---------- Test-only files the image never builds ----------
+# Vitest runs these outside the image; npm run build passes without them.
+src/**/*.test.ts
+src/**/*.test.tsx
+src/test
+
+# ---------- Docs and Docker files the image does not need ----------
+# None of these are copied by the Dockerfile.
+*.md
+Dockerfile
+.dockerignore
