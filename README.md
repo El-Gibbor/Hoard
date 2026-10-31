@@ -371,9 +371,12 @@ To run the same checks before pushing, use `npm run lint && npm run typecheck &&
 | Linear history required | Squash or rebase merges keep the history readable |
 | Rules enforced for administrators | The rules apply to everyone, including repository owners |
 | Force pushes and branch deletion blocked | Shared history cannot be rewritten or lost |
-| **Backend checks** status check required | The CI job must pass, so code that fails lint, type-check, tests or the build cannot reach `main` |
+| **Backend checks** status check required | The API must pass lint, type-check, tests against Postgres and the build, so broken backend code cannot reach `main` |
+| **Frontend checks** status check required | The web app must pass lint, type-check, tests and the build, so broken UI code cannot reach `main` |
+| **Docker images (api)** status check required | The API image must still build, so a change that breaks the container is caught before merging |
+| **Docker images (web)** status check required | The web image must still build, so a change that breaks the container is caught before merging |
 
-Branches are **not** required to be up to date with `main` before merging. With four people merging in parallel, that rule would force a re-run on every open pull request each time `main` moves. Each CI run still tests the pull request merged with `main` as it stood when the run started.
+Branches **must** be up to date with `main` before merging. The required checks then run against the latest `main`, so two pull requests that pass on their own cannot break `main` when combined. The cost: each time `main` moves, an open pull request needs **Update branch** (or a merge of `main` into the branch), which re-runs CI before the merge is allowed. Because stale approvals are dismissed, that update also removes the existing approval, so the pull request needs a fresh one.
 
 ### Branch Workflow
 
