@@ -299,6 +299,8 @@ Tests use a separate database, `hoard_test`, and create it if it is missing. The
 
 ### Environment Variables
 
+These are read from `backend/.env` when the API runs with `npm run dev`. For Docker Compose, see [Docker Compose variables](#docker-compose-variables) below.
+
 | Variable | Required | Description |
 | --- | --- | --- |
 | `NODE_ENV` | No | `development`, `production` or `test`. Defaults to `development`. |
@@ -310,6 +312,28 @@ Tests use a separate database, `hoard_test`, and create it if it is missing. The
 | `ADMIN_PASSWORD` | For seed | Password of the seeded admin account. Never commit a real password. |
 | `JWT_SECRET` | Yes | Secret used to sign login tokens. At least 32 characters. |
 | `JWT_EXPIRES_IN` | No | Token lifetime. Defaults to `1d`. |
+
+#### Docker Compose variables
+
+Compose reads these from a `.env` file in the repository root. All of them are optional. [`.env.example`](.env.example) lists them with their defaults, which are for local development only. Compose sets `DATABASE_URL`, `NODE_ENV`, `PORT` and `CLIENT_ORIGIN` for the containers itself.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `POSTGRES_USER` | `hoard` | Database user created in the `db` container |
+| `POSTGRES_PASSWORD` | `hoard` | Password of that user |
+| `POSTGRES_DB` | `hoard` | Database the API uses |
+| `WEB_PORT` | `8080` | Host port for the app |
+| `API_PORT` | `4000` | Host port for the API |
+| `POSTGRES_PORT` | `5433` | Host port for Postgres |
+| `JWT_SECRET` | Local placeholder | Secret used to sign login tokens. At least 32 characters. |
+| `JWT_EXPIRES_IN` | `1d` | Token lifetime |
+| `ADMIN_EMAIL` | `admin@hoard.local` | Email of the seeded admin account |
+| `ADMIN_NAME` | `Hoard Admin` | Name of the seeded admin account |
+| `ADMIN_PASSWORD` | `change-me-locally` | Password of the seeded admin account |
+
+`migrate` runs the seed on every start, so a new `ADMIN_NAME` or `ADMIN_PASSWORD` applies on the next `docker compose up`. A new `ADMIN_EMAIL` creates a second admin account; the old one stays.
+
+`POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB` only apply when the `pgdata` volume is first created. After changing them, run `docker compose down -v` (this deletes all data), then `docker compose up --build`.
 
 ## Continuous Integration
 
