@@ -1,0 +1,2 @@
+# Docker matches these patterns inside a Linux engine, so the file must use LF.
+.dockerignore text eol=lf
