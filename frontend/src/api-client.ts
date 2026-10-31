@@ -21,7 +21,7 @@ export class ApiError extends Error {
   }
 }
 
-const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
 
 let onUnauthorised = (): void => {};
 
