@@ -32,6 +32,7 @@ pnpm-debug.log*
 .eslintcache
 .vite/
 .vitest/
+test-results.xml
 
 # ---------- Docker & local data ----------
 docker-compose.override.yml
