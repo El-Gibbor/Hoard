@@ -2,6 +2,8 @@ generator client {
   provider     = "prisma-client"
   output       = "../src/generated/prisma"
   moduleFormat = "cjs"
+  // Explicit, so compiled output imports .js files whether or not tsconfig.json is present at generate time
+  importFileExtension = "js"
 }
 
 datasource db {
