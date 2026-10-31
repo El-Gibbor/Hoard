@@ -1,20 +1,96 @@
+# Hoard local stack: `docker compose up --build`, then open http://localhost:8080
+# Every variable has a local-development default; override any of them in a root .env (see .env.example)
+
+name: hoard
+
+x-database-url: &database-url postgresql://${POSTGRES_USER:-hoard}:${POSTGRES_PASSWORD:-hoard}@db:5432/${POSTGRES_DB:-hoard}
+
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: hoard
-      POSTGRES_PASSWORD: hoard
-      POSTGRES_DB: hoard
+      POSTGRES_USER: ${POSTGRES_USER:-hoard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hoard}
+      POSTGRES_DB: ${POSTGRES_DB:-hoard}
+    # Published on 5433 so `npm run dev` and the backend tests can reach it from the host
     ports:
-      - '5433:5432'
+      - '${POSTGRES_PORT:-5433}:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U hoard -d hoard']
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - backend
+
+  # One-off job: applies migrations and seeds categories and the admin, then exits
+  migrate:
+    build:
+      context: .
+      target: migrate
+    image: hoard-migrate
+    command: ['sh', '-c', 'npx prisma migrate deploy && npm run db:seed']
+    environment:
+      DATABASE_URL: *database-url
+      # The seed loads the app config, which validates the JWT secret
+      JWT_SECRET: ${JWT_SECRET:-local-dev-jwt-secret-change-me-at-least-32-chars}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@hoard.local}
+      ADMIN_NAME: ${ADMIN_NAME:-Hoard Admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-locally}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: 'no'
+    networks:
+      - backend
+
+  api:
+    build:
+      context: .
+      target: runtime
+    image: hoard-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: *database-url
+      JWT_SECRET: ${JWT_SECRET:-local-dev-jwt-secret-change-me-at-least-32-chars}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+      CLIENT_ORIGIN: http://localhost:${WEB_PORT:-8080}
+    # Published so the API can also be called directly, e.g. with the README curl walkthrough
+    ports:
+      - '${API_PORT:-4000}:4000'
+    # Starts only once the schema exists; the image's own HEALTHCHECK reports readiness
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - backend
+      - frontend
+
+  web:
+    build:
+      context: ./frontend
+    image: hoard-web
+    restart: unless-stopped
+    ports:
+      - '${WEB_PORT:-8080}:8080'
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - frontend
+
+# web reaches api but never the database; db, migrate and api share the backend network
+networks:
+  backend:
+  frontend:
 
 volumes:
   pgdata:
