@@ -376,7 +376,7 @@ To run the same checks before pushing, use `npm run lint && npm run typecheck &&
 | **Docker images (api)** status check required | The API image must still build, so a change that breaks the container is caught before merging |
 | **Docker images (web)** status check required | The web image must still build, so a change that breaks the container is caught before merging |
 
-Branches **must** be up to date with `main` before merging. The required checks then run against the latest `main`, so two pull requests that pass on their own cannot break `main` when combined. The cost: each time `main` moves, an open pull request needs **Update branch** (or a merge of `main` into the branch), which re-runs CI before the merge is allowed.
+Branches **must** be up to date with `main` before merging. The required checks then run against the latest `main`, so two pull requests that pass on their own cannot break `main` when combined. The cost: each time `main` moves, an open pull request needs **Update branch** (or a merge of `main` into the branch), which re-runs CI before the merge is allowed. Because stale approvals are dismissed, that update also removes the existing approval, so the pull request needs a fresh one.
 
 ### Branch Workflow
 
