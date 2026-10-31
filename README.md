@@ -59,7 +59,89 @@ Hoard is built for people whose money moves through a MoMo wallet and their pock
 
 - Node.js 20 or newer
 - npm 10 or newer
-- Docker, for the local Postgres database. Compose publishes it on port 5433 so it does not clash with another Postgres already using 5432.
+- Docker with Docker Compose v2 (the `docker compose` command, with a space). It runs the full stack, and the other setups below use it for the local Postgres database. Compose publishes Postgres on port 5433 so it does not clash with another Postgres already using 5432.
+
+### Run everything with Docker Compose
+
+This is the quickest way to run Hoard. Running the app needs only Docker, not Node.js or npm. Check that Compose v2 is installed:
+
+```bash
+docker compose version
+```
+
+From a terminal:
+
+```bash
+git clone https://github.com/El-Gibbor/Hoard.git
+cd Hoard
+docker compose up --build
+```
+
+The first `--build` takes a few minutes, because it builds three images. Add `-d` (`docker compose up --build -d`) to run the stack in the background and keep the terminal free. No `.env` file is needed: every variable has a local-development default.
+
+Once the services are up, open:
+
+- `http://localhost:8080` for the app
+- `http://localhost:8080/api/health` for a quick check. It returns `{"status":"ok",...}`.
+
+The API is also published on `http://localhost:4000`, so the [curl walkthrough](#try-the-api-with-curl) works against the stack too. It uses Node on the host to read the JSON responses. For its admin step, use the Compose admin account below.
+
+#### Check that it is running
+
+In a second terminal, from the repository root:
+
+```bash
+docker compose ps -a
+```
+
+`db`, `api` and `web` show `healthy` in the STATUS column, and `migrate` shows `Exited (0)`. That is expected: `migrate` applies the database migrations, seeds the categories and the admin account, then exits. It runs again on every start without creating duplicates.
+
+| Service | Built from | Host port | Purpose |
+| --- | --- | --- | --- |
+| `db` | `postgres:16-alpine` | 5433 | Postgres database. Data is kept in the `pgdata` volume. |
+| `migrate` | Root `Dockerfile`, `migrate` stage | None | Applies migrations and runs the seed, then exits |
+| `api` | Root `Dockerfile` | 4000 | Express API |
+| `web` | `frontend/Dockerfile` | 8080 | nginx: serves the app and forwards `/api` to `api` |
+
+The services start in order: `db` healthy, then `migrate` exits with code 0, then `api` healthy, then `web`.
+
+#### Accounts
+
+Sign up in the app, or sign in as the seeded admin with `admin@hoard.local` and `change-me-locally`. These are local-development defaults only. Never use them on a shared or public server.
+
+#### Configuration
+
+To change the ports, the database credentials, `JWT_SECRET` or the admin account, copy the root example file and edit it:
+
+```bash
+cp .env.example .env
+```
+
+Compose reads `.env` from the repository root. Git ignores it, so it is never committed. This root `.env.example` is for Docker Compose. It is a different file from `backend/.env.example`, which is for running the API with `npm run dev`. See [Environment Variables](#environment-variables) for the full list.
+
+#### Stop
+
+Press `Ctrl+C` in the terminal running `docker compose up`, or run this from the repository root:
+
+```bash
+docker compose down      # stops and removes the containers; the database is kept
+docker compose down -v   # also deletes the pgdata volume, so all data is lost
+```
+
+#### Logs and rebuilding
+
+```bash
+docker compose logs -f api   # follow the API logs; use web, db or migrate for the others
+docker compose up --build    # run again after code changes to rebuild the images
+```
+
+#### Troubleshooting
+
+- **A port is already in use** (8080, 4000 or 5433): set `WEB_PORT`, `API_PORT` or `POSTGRES_PORT` in `.env`, then run `docker compose up` again. With a new `WEB_PORT`, open the app on that port.
+- **`npm run dev` for the API fails because port 4000 is taken**: the `api` container uses it too. Stop that container with `docker compose stop api`, or set `API_PORT` in `.env`.
+- **Start again with a clean database**: run `docker compose down -v`, then `docker compose up --build`.
+
+To work on the code without containers, follow [Run the API locally](#run-the-api-locally) and [Run the frontend](#run-the-frontend).
 
 ### Run the API locally
 
