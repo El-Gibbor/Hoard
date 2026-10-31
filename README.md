@@ -105,6 +105,17 @@ From `frontend/`:
 npm run lint && npm run typecheck && npm test && npm run build
 ```
 
+### Frontend image
+
+[`frontend/Dockerfile`](frontend/Dockerfile) builds the app with Vite and serves it with unprivileged nginx on port 8080. From the repository root:
+
+```bash
+docker build -t hoard-web frontend
+docker run --rm -p 8080:8080 hoard-web   # http://localhost:8080
+```
+
+nginx serves `index.html` for every app route and forwards `/api` to a container named `api` on port 4000, so the browser talks to one origin. The image is built with an empty `VITE_API_URL`, which makes the app call `/api` on its own origin. When `VITE_API_URL` is unset, as in local development, the app calls `http://localhost:4000`. Without an `api` container, `/api` requests return `502` and the app pages still load.
+
 ### API
 
 Expense and category routes require `Authorization: Bearer <token>`. Amounts are whole Rwandan francs.
