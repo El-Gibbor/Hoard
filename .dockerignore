@@ -1,0 +1,57 @@
+# ---------- Dependencies and build output ----------
+# The image installs, generates, and compiles these itself.
+**/node_modules
+**/dist
+**/dist-ssr
+**/build
+**/coverage
+**/*.tsbuildinfo
+**/backend/src/generated
+
+# ---------- Secrets ----------
+# Example files stay so the variable names remain visible.
+**/.env
+**/.env.*
+!**/.env.example
+**/*.local
+**/*.pem
+**/*.key
+**/*.crt
+
+# ---------- Repository metadata and editor files ----------
+**/.git
+**/.github
+**/.vscode
+**/.idea
+**/*.sw?
+**/*.suo
+**/.DS_Store
+**/Thumbs.db
+
+# ---------- Logs and local caches ----------
+**/logs
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+**/.cache
+**/.eslintcache
+**/.vite
+**/.vitest
+**/.pnpm-store
+
+# ---------- Files the API image never runs ----------
+# The Dockerfile only copies the backend app. Docs, Compose, and the frontend stay out.
+**/frontend
+**/backend/tests
+**/docker
+**/*.md
+**/docker-compose*.yml
+**/pgdata
+**/.terraform
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfvars
+**/F1instruction.txt
+**/F2.txt
