@@ -345,13 +345,15 @@ Compose reads these from a `.env` file in the repository root. All of them are o
 | **Frontend checks** | Installs dependencies, then lints, type-checks, tests and builds the app | Lint, type-check, a test or the build fails |
 | **Docker images (api)** and **Docker images (web)** | Builds the API image from the root [`Dockerfile`](Dockerfile) and the web image from [`frontend/Dockerfile`](frontend/Dockerfile). Runs only after both check jobs pass | An image does not build |
 
-Any failing step fails its job, and a failed job blocks the pull request.
+Any failing step fails its job, and a failed job marks the pull request red. Which jobs must pass before merging is set by branch protection; see [Branch Protection](#branch-protection).
 
 **Images.** On a pull request the images are built and then discarded. On a push to a branch they are also published to GitHub Container Registry as `ghcr.io/el-gibbor/hoard-api` and `ghcr.io/el-gibbor/hoard-web`, tagged with the branch name (slashes become dashes) and the commit SHA. Publishing uses the workflow's built-in `GITHUB_TOKEN`, so no personal token is stored anywhere.
 
 **Speed.** npm downloads are cached per package lock, and Docker layers are cached in GitHub Actions, so unchanged layers are not rebuilt. A newer push to the same branch cancels the run that is still going.
 
-**Artifacts.** Every run keeps the backend and frontend test reports and the built frontend (`frontend-build`). Download them from the run's summary page under *Artifacts*.
+**Why jobs appear twice.** A branch with an open pull request runs the pipeline once for the `push` and once for the `pull_request` event. The two events have different refs, so they fall in separate concurrency groups and neither cancels the other.
+
+**Artifacts.** Each run keeps the test reports it produced, and the built frontend (`frontend-build`) when Frontend checks pass. A run that fails before its tests has no report. Download them from the run's summary page under *Artifacts*.
 
 To run the same checks before pushing, use `npm run lint && npm run typecheck && npm test && npm run build` in `backend/` (with the Compose database running) and in `frontend/`.
 
