@@ -154,13 +154,16 @@ describe('expenses', () => {
   it('hides another user\'s expenses', async () => {
     const owner = await registerUser();
     const other = await registerUser();
-    await request(app)
+    const created = await request(app)
       .post('/api/expenses')
       .set(bearer(owner.token))
       .send(expenseBody({ title: 'Private fare' }));
 
+    const ownerList = await request(app).get('/api/expenses').set(bearer(owner.token));
     const res = await request(app).get('/api/expenses').set(bearer(other.token));
 
+    expect(created.status).toBe(201);
+    expect(ownerList.body.map((expense: { id: string }) => expense.id)).toEqual([created.body.id]);
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
   });

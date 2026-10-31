@@ -65,11 +65,12 @@ describe('budgets', () => {
     const other = await registerUser();
     await expense(user.token, 40000, '2026-10-05');
     await expense(user.token, 90000, '2026-09-05');
-    await expense(other.token, 70000, '2026-10-05');
+    const otherExpense = await expense(other.token, 70000, '2026-10-05');
     await request(app).put('/api/budgets/2026-10').set(bearer(user.token)).send({ amount: 200000 });
 
     const res = await request(app).get('/api/budgets/2026-10').set(bearer(user.token));
 
+    expect(otherExpense.status).toBe(201);
     expect(res.status).toBe(200);
     expect(res.body.spent).toBe(40000);
     expect(res.body.remaining).toBe(160000);
