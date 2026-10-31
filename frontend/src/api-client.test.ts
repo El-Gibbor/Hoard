@@ -42,3 +42,35 @@ describe('api client', () => {
     expect(onUnauthorised).toHaveBeenCalledOnce();
   });
 });
+
+describe('api base URL', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  // The base URL is read when the module loads, so each case imports a fresh copy
+  const requestedUrl = async (): Promise<string> => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.resetModules();
+    const client = await import('./api-client');
+
+    await client.apiRequest('/api/health');
+
+    return (fetchMock.mock.calls[0] as [string])[0];
+  };
+
+  it('calls the same origin when VITE_API_URL is empty', async () => {
+    vi.stubEnv('VITE_API_URL', '');
+
+    expect(await requestedUrl()).toBe('/api/health');
+  });
+
+  it('falls back to the local API when VITE_API_URL is unset', async () => {
+    vi.stubEnv('VITE_API_URL', undefined);
+
+    expect(await requestedUrl()).toBe('http://localhost:4000/api/health');
+  });
+});
