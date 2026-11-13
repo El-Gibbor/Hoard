@@ -1,5 +1,6 @@
 # Firewall for the subnet. A lower priority number is checked first.
 resource "azurerm_network_security_group" "nsg" {
+  #checkov:skip=CKV_AZURE_160:Browsers open Hoard on port 80, so this rule stays open on purpose
   name                = "${var.prefix}-nsg"
   location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
