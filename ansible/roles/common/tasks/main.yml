@@ -1,0 +1,70 @@
+---
+# Refresh package lists and install the tools this role configures.
+- name: Install firewall, fail2ban and unattended upgrades
+  ansible.builtin.apt:
+    name:
+      - ufw
+      - fail2ban
+      - unattended-upgrades
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+    upgrade: safe
+
+# A drop-in file, so the packaged sshd_config is left alone.
+- name: Disable root login and password login
+  ansible.builtin.template:
+    src: sshd-hoard.conf.j2
+    dest: /etc/ssh/sshd_config.d/99-hoard.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart SSH
+
+- name: Block addresses that keep failing SSH
+  ansible.builtin.template:
+    src: fail2ban-sshd.conf.j2
+    dest: /etc/fail2ban/jail.d/hoard.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart fail2ban
+
+- name: Make sure fail2ban is running
+  ansible.builtin.service:
+    name: fail2ban
+    state: started
+    enabled: true
+
+- name: Install security updates automatically
+  ansible.builtin.template:
+    src: auto-upgrades.j2
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root
+    group: root
+    mode: "0644"
+
+# Allow SSH before the firewall is switched on, so this run cannot lock us out.
+- name: Allow SSH
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+
+- name: Allow HTTP
+  community.general.ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+
+- name: Allow HTTPS
+  community.general.ufw:
+    rule: allow
+    port: "443"
+    proto: tcp
+
+- name: Deny every other inbound connection
+  community.general.ufw:
+    state: enabled
+    direction: incoming
+    policy: deny

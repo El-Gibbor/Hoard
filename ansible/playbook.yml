@@ -1,0 +1,7 @@
+---
+# Lock down the virtual machine Terraform created. Docker and Hoard come in a later play.
+- name: Harden the Hoard server
+  hosts: hoard
+  become: true
+  roles:
+    - common
