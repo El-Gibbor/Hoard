@@ -169,6 +169,50 @@ jobs:
           name: npm-audit-${{ matrix.app }}
           path: ${{ matrix.app }}/npm-audit.json
 
+  terraform:
+    name: Terraform checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.1
+
+      - name: Initialise without a backend
+        run: terraform init -backend=false -input=false
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive
+
+      - name: Validate
+        run: terraform validate
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Checkov
+        run: pip install checkov==3.4.5
+
+      # Any failed check fails the job; accepted risks are skipped inline with a reason.
+      - name: Scan with Checkov
+        run: checkov -d . --framework terraform --compact -o cli -o sarif --output-file-path console,checkov.sarif
+
+      - name: Upload the Checkov report
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-report
+          path: terraform/checkov.sarif
+          if-no-files-found: ignore
+
   images:
     name: Docker images (${{ matrix.name }})
     needs: [backend, frontend]
