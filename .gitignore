@@ -33,6 +33,8 @@ pnpm-debug.log*
 .vite/
 .vitest/
 test-results.xml
+npm-audit.json
+*.sarif
 
 # ---------- Terraform ----------
 .terraform/
