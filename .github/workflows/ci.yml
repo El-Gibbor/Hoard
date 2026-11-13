@@ -132,6 +132,43 @@ jobs:
           name: frontend-build
           path: frontend/dist
 
+  audit:
+    name: Dependency audit (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [backend, frontend]
+    defaults:
+      run:
+        working-directory: ${{ matrix.app }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Shipped code fails on moderate and above; dev tooling only on high and above.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=moderate
+
+      - name: Audit all dependencies
+        run: npm audit --audit-level=high
+
+      - name: Save the audit report
+        if: success() || failure()
+        run: npm audit --json > npm-audit.json || true
+
+      - name: Upload the audit report
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-${{ matrix.app }}
+          path: ${{ matrix.app }}/npm-audit.json
+
   images:
     name: Docker images (${{ matrix.name }})
     needs: [backend, frontend]
