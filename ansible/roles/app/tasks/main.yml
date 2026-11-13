@@ -69,8 +69,8 @@
       - missing
       - migrate
     chdir: "{{ hoard_dir }}"
-  register: hoard_migrate
-  changed_when: hoard_migrate.stdout is not search('No pending migrations to apply')
+  register: app_migrate
+  changed_when: app_migrate.stdout is not search('No pending migrations to apply')
 
 # Pull an image only when it is missing, so a second run does not count as a change.
 - name: Start Hoard
@@ -87,10 +87,10 @@
       - --pull
       - missing
     chdir: "{{ hoard_dir }}"
-  register: hoard_up
+  register: app_up
   changed_when: >-
-    hoard_up.stdout is search('Started|Created|Recreated') or
-    hoard_up.stderr is search('Started|Created|Recreated')
+    app_up.stdout is search('Started|Created|Recreated') or
+    app_up.stderr is search('Started|Created|Recreated')
 
 - name: Wait until Hoard answers on port 80
   ansible.builtin.wait_for:
