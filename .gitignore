@@ -34,6 +34,21 @@ pnpm-debug.log*
 .vitest/
 test-results.xml
 
+# ---------- Terraform ----------
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+.terraform.tfstate.lock.info
+
+# ---------- Ansible ----------
+ansible/inventory/hosts.ini
+*.retry
+
 # ---------- Docker & local data ----------
 docker-compose.override.yml
 pgdata/
