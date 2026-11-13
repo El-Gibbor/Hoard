@@ -1,5 +1,4 @@
 # Hoard on the virtual machine. The API and the web app are pulled by tag.
-# The published API image is the runtime stage, so this file does not run migrations.
 name: hoard
 
 services:
@@ -17,6 +16,24 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - backend
+
+  # One-off job: the playbook runs it before starting the app, so `up` skips it.
+  migrate:
+    image: "ghcr.io/el-gibbor/hoard-migrate:{{ image_tag }}"
+    profiles: [tools]
+    command: ["sh", "-c", "npx prisma migrate deploy && npm run db:seed"]
+    environment:
+      DATABASE_URL: postgresql://hoard:${POSTGRES_PASSWORD}@db:5432/hoard
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_EMAIL: "{{ admin_email }}"
+      ADMIN_NAME: "{{ admin_name }}"
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
     networks:
       - backend
 
