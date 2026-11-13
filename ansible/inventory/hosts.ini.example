@@ -1,0 +1,2 @@
+[hoard]
+203.0.113.10 ansible_user=hoard ansible_ssh_private_key_file=~/.ssh/hoard

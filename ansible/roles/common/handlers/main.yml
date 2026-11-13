@@ -1,0 +1,11 @@
+---
+# Runs only when a task that notifies it has changed the SSH settings.
+- name: Restart SSH
+  ansible.builtin.service:
+    name: ssh
+    state: restarted
+
+- name: Restart fail2ban
+  ansible.builtin.service:
+    name: fail2ban
+    state: restarted

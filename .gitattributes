@@ -1,2 +1,5 @@
 # Docker matches these patterns inside a Linux engine, so the file must use LF.
 **/.dockerignore text eol=lf
+
+# The inventory script is run by sh, which treats a carriage return as part of the command.
+ansible/inventory.sh text eol=lf
