@@ -380,6 +380,9 @@ To run the same checks before pushing, use `npm run lint && npm run typecheck &&
 | **Frontend checks** status check required | The web app must pass lint, type-check, tests and the build, so broken UI code cannot reach `main` |
 | **Docker images (api)** status check required | The API image must still build, so a change that breaks the container is caught before merging |
 | **Docker images (web)** status check required | The web image must still build, so a change that breaks the container is caught before merging |
+| **Dependency audit (backend)** and **Dependency audit (frontend)** status checks required | A vulnerable dependency above the audit threshold cannot reach `main` |
+| **Terraform checks** status check required | Infrastructure code must be formatted, valid and pass Checkov before merging |
+| **Ansible lint** status check required | Playbooks and roles must pass ansible-lint's production profile before merging |
 
 Branches **must** be up to date with `main` before merging. The required checks then run against the latest `main`, so two pull requests that pass on their own cannot break `main` when combined. The cost: each time `main` moves, an open pull request needs **Update branch** (or a merge of `main` into the branch), which re-runs CI before the merge is allowed. Because stale approvals are dismissed, that update also removes the existing approval, so the pull request needs a fresh one.
 
