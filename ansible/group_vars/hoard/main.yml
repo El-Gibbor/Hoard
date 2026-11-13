@@ -1,0 +1,8 @@
+---
+# Tag CI publishes when main is pushed. Override with -e image_tag=<sha> for one build.
+image_tag: main
+
+# GitHub account that owns the container packages.
+ghcr_username: El-Gibbor
+
+hoard_dir: /opt/hoard

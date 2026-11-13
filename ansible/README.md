@@ -1,8 +1,14 @@
-# Harden the Hoard server
+# Set up the Hoard server
 
-This playbook logs into the virtual machine from `terraform/` and locks it down. It updates packages, allows only SSH, HTTP and HTTPS through the firewall, turns off root and password login, and installs fail2ban plus automatic security upgrades.
+This playbook logs into the virtual machine from `terraform/`, locks it down, installs Docker, and starts Hoard.
 
-It does not install Docker or start Hoard. That is a separate play.
+The `common` role updates packages, allows only SSH, HTTP and HTTPS through the firewall, turns off root and password login, and installs fail2ban plus automatic security upgrades.
+
+The `docker` role installs Docker Engine and the Compose plugin from Docker's apt repository, and adds the admin user to the `docker` group.
+
+The `app` role writes a production Compose file and starts Hoard. The API and the web app are pulled from `ghcr.io/el-gibbor/hoard-api` and `ghcr.io/el-gibbor/hoard-web`. The tag defaults to `main`. Postgres stays on the Docker network. The browser uses port 80.
+
+The published API image is the runtime stage. This playbook does not apply database migrations.
 
 ## Prerequisites
 
@@ -13,6 +19,17 @@ It does not install Docker or start Hoard. That is a separate play.
 ```bash
 sudo apt install ansible
 ```
+
+## Secrets
+
+Copy the example and replace the database password and the JWT secret. The password should be letters and digits, because it is placed inside a Postgres URL. The JWT secret must be at least 32 characters.
+
+```bash
+cp group_vars/hoard/vault.yml.example group_vars/hoard/vault.yml
+ansible-vault encrypt group_vars/hoard/vault.yml
+```
+
+`vault.yml` is not committed. If the container packages are private, set `ghcr_token` in that file to a GitHub token with `read:packages` before encrypting it.
 
 ## Build the inventory
 
@@ -30,7 +47,7 @@ From the `ansible` directory:
 
 ```bash
 cd ansible
-ansible-playbook playbook.yml
+ansible-playbook playbook.yml --ask-vault-pass
 ```
 
 Run it a second time. When the server is already in the desired state, the recap shows `changed=0`.
@@ -43,6 +60,7 @@ On the virtual machine:
 sudo ufw status
 sudo sshd -T | grep -E 'permitrootlogin|passwordauthentication'
 systemctl is-active fail2ban
+docker compose -f /opt/hoard/docker-compose.prod.yml ps
 ```
 
-`ufw status` lists 22, 80 and 443. `permitrootlogin` and `passwordauthentication` are `no`. fail2ban is `active`.
+`ufw status` lists 22, 80 and 443. `permitrootlogin` and `passwordauthentication` are `no`. fail2ban is `active`. The Compose listing shows `db`, `api` and `web` running. Open `http://<public_ip>` in a browser.

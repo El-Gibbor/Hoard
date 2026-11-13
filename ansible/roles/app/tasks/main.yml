@@ -1,0 +1,80 @@
+---
+- name: Check the vault secrets are loaded
+  ansible.builtin.assert:
+    that:
+      - postgres_password is defined
+      - postgres_password | length > 0
+      - jwt_secret is defined
+      - jwt_secret | length >= 32
+    fail_msg: >-
+      Create group_vars/hoard/vault.yml from vault.yml.example, set the
+      database password and a JWT secret of at least 32 characters, then
+      encrypt it with ansible-vault.
+
+- name: Create the Hoard directory
+  ansible.builtin.file:
+    path: "{{ hoard_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Write the production Compose file
+  ansible.builtin.template:
+    src: docker-compose.prod.yml.j2
+    dest: "{{ hoard_dir }}/docker-compose.prod.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+# The env file holds the vault secrets, so the recap does not print it.
+- name: Write the env file from the vault
+  ansible.builtin.template:
+    src: hoard.env.j2
+    dest: "{{ hoard_dir }}/hoard.env"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+# A private package needs a token. An empty token means the images are public.
+- name: Log in to GitHub Container Registry
+  ansible.builtin.command:
+    argv:
+      - docker
+      - login
+      - ghcr.io
+      - -u
+      - "{{ ghcr_username }}"
+      - --password-stdin
+    stdin: "{{ ghcr_token }}"
+  when: ghcr_token | default('') | length > 0
+  changed_when: false
+  no_log: true
+
+# Pull an image only when it is missing, so a second run does not count as a change.
+- name: Start Hoard
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --env-file
+      - "{{ hoard_dir }}/hoard.env"
+      - -f
+      - "{{ hoard_dir }}/docker-compose.prod.yml"
+      - up
+      - -d
+      - --pull
+      - missing
+    chdir: "{{ hoard_dir }}"
+  register: hoard_up
+  changed_when: >-
+    hoard_up.stdout is search('Started|Created|Recreated') or
+    hoard_up.stderr is search('Started|Created|Recreated')
+
+- name: Wait until Hoard answers on port 80
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 80
+    delay: 3
+    timeout: 180
