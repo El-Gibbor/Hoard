@@ -213,6 +213,30 @@ jobs:
           path: terraform/checkov.sarif
           if-no-files-found: ignore
 
+  ansible:
+    name: Ansible lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ansible
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ansible-lint
+        run: pip install ansible-lint==26.11.0
+
+      - name: Install collections
+        run: ansible-galaxy collection install -r requirements.yml
+
+      - name: Lint with the production profile
+        run: ansible-lint --profile production
+
   images:
     name: Docker images (${{ matrix.name }})
     needs: [backend, frontend]
