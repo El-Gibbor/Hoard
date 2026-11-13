@@ -345,6 +345,7 @@ Compose reads these from a `.env` file in the repository root. All of them are o
 | **Frontend checks** | Installs dependencies, then lints, type-checks, tests and builds the app | Lint, type-check, a test or the build fails |
 | **Dependency audit (backend)** and **Dependency audit (frontend)** | Runs `npm audit` against each package lock | A production dependency has a moderate or worse vulnerability, or any dependency has a high or worse one |
 | **Terraform checks** | Checks formatting, validates [`terraform/`](terraform) and scans it with [Checkov](https://www.checkov.io/) | Code is unformatted, invalid, or fails a Checkov check that is not skipped with a reason |
+| **Ansible lint** | Lints [`ansible/`](ansible) with ansible-lint's `production` profile | Any rule is violated |
 | **Docker images (api)** and **Docker images (web)** | Builds the API image from the root [`Dockerfile`](Dockerfile) and the web image from [`frontend/Dockerfile`](frontend/Dockerfile). Runs only after both check jobs pass | An image does not build |
 
 Any failing step fails its job, and a failed job marks the pull request red. Which jobs must pass before merging is set by branch protection; see [Branch Protection](#branch-protection).
@@ -359,7 +360,7 @@ Any failing step fails its job, and a failed job marks the pull request red. Whi
 
 **Artifacts.** Each run keeps the test reports it produced, the npm audit reports (`npm-audit-backend`, `npm-audit-frontend`), the Checkov report (`checkov-report`, SARIF), and the built frontend (`frontend-build`) when Frontend checks pass. A run that fails before its tests has no report. Download them from the run's summary page under *Artifacts*.
 
-To run the same checks before pushing, use `npm run lint && npm run typecheck && npm test && npm run build` in `backend/` (with the Compose database running) and in `frontend/`. For the security checks, run `npm audit --omit=dev --audit-level=moderate && npm audit --audit-level=high` in each app, and `terraform fmt -check -recursive && terraform validate && checkov -d .` in `terraform/`.
+To run the same checks before pushing, use `npm run lint && npm run typecheck && npm test && npm run build` in `backend/` (with the Compose database running) and in `frontend/`. For the security checks, run `npm audit --omit=dev --audit-level=moderate && npm audit --audit-level=high` in each app, `terraform fmt -check -recursive && terraform validate && checkov -d .` in `terraform/`, and `ansible-galaxy collection install -r requirements.yml && ansible-lint --profile production` in `ansible/`. Findings and how each was handled are in [SECURITY.md](SECURITY.md).
 
 ## Branch Protection
 
