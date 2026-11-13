@@ -9,6 +9,9 @@ postgres_password: replace-this-password
 # At least 32 characters.
 jwt_secret: replace-this-with-a-secret-32-characters
 
+# Password for the seeded admin account.
+admin_password: replace-this-admin-password
+
 # Leave this empty when the container packages are public.
 # A private package needs a GitHub token with read:packages.
 ghcr_token: ""

@@ -6,9 +6,7 @@ The `common` role updates packages, allows only SSH, HTTP and HTTPS through the 
 
 The `docker` role installs Docker Engine and the Compose plugin from Docker's apt repository, and adds the admin user to the `docker` group.
 
-The `app` role writes a production Compose file and starts Hoard. The API and the web app are pulled from `ghcr.io/el-gibbor/hoard-api` and `ghcr.io/el-gibbor/hoard-web`. The tag defaults to `main`. Postgres stays on the Docker network. The browser uses port 80.
-
-The published API image is the runtime stage. This playbook does not apply database migrations.
+The `app` role writes a production Compose file, applies database migrations and seeds the categories and admin account with the `hoard-migrate` image, then starts Hoard. The API and the web app are pulled from `ghcr.io/el-gibbor/hoard-api` and `ghcr.io/el-gibbor/hoard-web`. The tag defaults to `main`, which the Publish workflow pushes on every merge. Postgres stays on the Docker network. The browser uses port 80.
 
 ## Prerequisites
 
@@ -22,7 +20,7 @@ sudo apt install ansible
 
 ## Secrets
 
-Copy the example and replace the database password and the JWT secret. The password should be letters and digits, because it is placed inside a Postgres URL. The JWT secret must be at least 32 characters.
+Copy the example and replace the database password, the JWT secret and the admin password. The password should be letters and digits, because it is placed inside a Postgres URL. The JWT secret must be at least 32 characters.
 
 ```bash
 cp group_vars/hoard/vault.yml.example group_vars/hoard/vault.yml

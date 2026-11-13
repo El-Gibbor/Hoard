@@ -6,10 +6,12 @@
       - postgres_password | length > 0
       - jwt_secret is defined
       - jwt_secret | length >= 32
+      - admin_password is defined
+      - admin_password | length > 0
     fail_msg: >-
       Create group_vars/hoard/vault.yml from vault.yml.example, set the
-      database password and a JWT secret of at least 32 characters, then
-      encrypt it with ansible-vault.
+      database password, a JWT secret of at least 32 characters and the
+      admin password, then encrypt it with ansible-vault.
 
 - name: Create the Hoard directory
   ansible.builtin.file:
@@ -51,6 +53,24 @@
   when: ghcr_token | default('') | length > 0
   changed_when: false
   no_log: true
+
+- name: Apply database migrations and seed
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --env-file
+      - "{{ hoard_dir }}/hoard.env"
+      - -f
+      - "{{ hoard_dir }}/docker-compose.prod.yml"
+      - run
+      - --rm
+      - --pull
+      - missing
+      - migrate
+    chdir: "{{ hoard_dir }}"
+  register: hoard_migrate
+  changed_when: hoard_migrate.stdout is not search('No pending migrations to apply')
 
 # Pull an image only when it is missing, so a second run does not count as a change.
 - name: Start Hoard
