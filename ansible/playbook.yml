@@ -1,7 +1,9 @@
 ---
-# Lock down the virtual machine Terraform created. Docker and Hoard come in a later play.
-- name: Harden the Hoard server
+# Lock the virtual machine down, install Docker, and start Hoard.
+- name: Prepare the Hoard server and start the app
   hosts: hoard
   become: true
   roles:
     - common
+    - docker
+    - app

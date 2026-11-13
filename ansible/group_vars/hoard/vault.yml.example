@@ -1,0 +1,14 @@
+---
+# Copy this file to vault.yml, replace the secrets, then encrypt it:
+#   ansible-vault encrypt group_vars/hoard/vault.yml
+# vault.yml is not committed.
+#
+# Use letters and digits for the database password. It is placed inside a Postgres URL.
+postgres_password: replace-this-password
+
+# At least 32 characters.
+jwt_secret: replace-this-with-a-secret-32-characters
+
+# Leave this empty when the container packages are public.
+# A private package needs a GitHub token with read:packages.
+ghcr_token: ""

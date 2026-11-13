@@ -1,0 +1,3 @@
+---
+# Azure's B1s image is x86_64. An Arm virtual machine reports aarch64.
+docker_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
