@@ -1,8 +1,8 @@
 # Docker matches these patterns inside a Linux engine, so the file must use LF.
 **/.dockerignore text eol=lf
 
-# The inventory script is run by sh, which treats a carriage return as part of the command.
-ansible/inventory.sh text eol=lf
+# The inventory script runs through its shebang, which breaks on a carriage return.
+ansible/inventory/terraform.py text eol=lf
 
 # These templates are copied onto Linux. A carriage return would land in the env file and the apt source.
 ansible/**/*.j2 text eol=lf

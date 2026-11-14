@@ -48,7 +48,6 @@ crash.*.log
 .terraform.tfstate.lock.info
 
 # ---------- Ansible ----------
-ansible/inventory/hosts.ini
 ansible/group_vars/hoard/vault.yml
 *.retry
 
