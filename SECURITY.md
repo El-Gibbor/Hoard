@@ -35,7 +35,7 @@ Each scan uploads its report as a workflow artifact: `npm-audit-backend`, `npm-a
 ## Controls in place
 
 - **Network:** the NSG allows only 22 (from the deployer's IP), 80 and 443. UFW on the VM enforces the same rules again.
-- **SSH:** key-only login, no root login, keyboard-interactive auth off, and fail2ban bans repeated failures.
+- **SSH:** key-only login, no root login, keyboard-interactive auth off, at most 3 attempts per connection, X11 forwarding off, and fail2ban bans repeated failures.
 - **Patching:** unattended security upgrades are on.
 - **Secrets:**
   - none are committed: `*.tfvars`, `.env*`, Terraform state and `ansible/group_vars/hoard/vault.yml` are ignored;
