@@ -4,7 +4,7 @@
 
 # ---------- Stage 1: build the static bundle ----------
 # Same pinned Node image as the API, so both images build on an identical base
-FROM node:22.23.4-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da AS build
+FROM node:22.23.5-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS build
 
 # All later paths are relative to the frontend app folder
 WORKDIR /app
@@ -28,7 +28,11 @@ RUN VITE_API_URL="$VITE_API_URL" npm run build
 
 # ---------- Stage 2: runtime (default target) ----------
 # Exact version plus digest; this nginx build runs as a non-root user and listens on 8080
-FROM nginxinc/nginx-unprivileged:1.30.5-alpine@sha256:56b8272e43a0525f67aed68d1e0794a712d10e3e45a563e118e9a77c817e6f86 AS runtime
+FROM nginxinc/nginx-unprivileged:1.30.6-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03 AS runtime
+
+# Alpine fixes reach the repositories before a new base image is published
+USER root
+RUN apk upgrade --no-cache
 
 # Replaces the default site with SPA routing, caching rules and the /api proxy
 COPY nginx.conf /etc/nginx/conf.d/default.conf
