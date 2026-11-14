@@ -59,6 +59,10 @@ ENV NODE_ENV=production \
 
 WORKDIR /app
 
+# The API runs with node alone; the bundled npm and corepack only add packages to scan
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
+
 # Only what the API needs at runtime, owned by the unprivileged node user from the base image
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
