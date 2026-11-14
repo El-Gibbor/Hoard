@@ -346,7 +346,7 @@ Compose reads these from a `.env` file in the repository root. All of them are o
 | **Dependency audit (backend)** and **Dependency audit (frontend)** | Runs `npm audit` against each package lock | A production dependency has a moderate or worse vulnerability, or any dependency has a high or worse one |
 | **Terraform checks** | Checks formatting, validates [`terraform/`](terraform) and scans it with [Checkov](https://www.checkov.io/) | Code is unformatted, invalid, or fails a Checkov check that is not skipped with a reason |
 | **Ansible lint** | Lints [`ansible/`](ansible) with ansible-lint's `production` profile | Any rule is violated |
-| **Docker images (api)** and **Docker images (web)** | Builds the API image from the root [`Dockerfile`](Dockerfile) and the web image from [`frontend/Dockerfile`](frontend/Dockerfile). Runs only after both check jobs pass | An image does not build |
+| **Docker images (api)** and **Docker images (web)** | Builds the API image from the root [`Dockerfile`](Dockerfile) and the web image from [`frontend/Dockerfile`](frontend/Dockerfile). Runs only after both check jobs pass. Scans each image with [Trivy](https://trivy.dev/) before it can be published | An image does not build, or has a fixable critical or high vulnerability |
 
 Any failing step fails its job, and a failed job marks the pull request red. Which jobs must pass before merging is set by branch protection; see [Branch Protection](#branch-protection).
 
@@ -358,7 +358,7 @@ Any failing step fails its job, and a failed job marks the pull request red. Whi
 
 **Why jobs appear twice.** A branch with an open pull request runs the pipeline once for the `push` and once for the `pull_request` event. The two events have different refs, so they fall in separate concurrency groups and neither cancels the other.
 
-**Artifacts.** Each run keeps the test reports it produced, the npm audit reports (`npm-audit-backend`, `npm-audit-frontend`), the Checkov report (`checkov-report`, SARIF), and the built frontend (`frontend-build`) when Frontend checks pass. A run that fails before its tests has no report. Download them from the run's summary page under *Artifacts*.
+**Artifacts.** Each run keeps the test reports it produced, the npm audit reports (`npm-audit-backend`, `npm-audit-frontend`), the Checkov report (`checkov-report`, SARIF), the Trivy reports (`trivy-api`, `trivy-web`, SARIF), and the built frontend (`frontend-build`) when Frontend checks pass. A run that fails before its tests has no report. Download them from the run's summary page under *Artifacts*.
 
 To run the same checks before pushing, use `npm run lint && npm run typecheck && npm test && npm run build` in `backend/` (with the Compose database running) and in `frontend/`. For the security checks, run `npm audit --omit=dev --audit-level=moderate && npm audit --audit-level=high` in each app, `terraform fmt -check -recursive && terraform validate && checkov -d .` in `terraform/`, and `ansible-galaxy collection install -r requirements.yml && ansible-lint --profile production` in `ansible/`. Findings and how each was handled are in [SECURITY.md](SECURITY.md).
 
@@ -378,8 +378,8 @@ To run the same checks before pushing, use `npm run lint && npm run typecheck &&
 | Force pushes and branch deletion blocked | Shared history cannot be rewritten or lost |
 | **Backend checks** status check required | The API must pass lint, type-check, tests against Postgres and the build, so broken backend code cannot reach `main` |
 | **Frontend checks** status check required | The web app must pass lint, type-check, tests and the build, so broken UI code cannot reach `main` |
-| **Docker images (api)** status check required | The API image must still build, so a change that breaks the container is caught before merging |
-| **Docker images (web)** status check required | The web image must still build, so a change that breaks the container is caught before merging |
+| **Docker images (api)** status check required | The API image must still build and pass the Trivy scan, so a broken or vulnerable container is caught before merging |
+| **Docker images (web)** status check required | The web image must still build and pass the Trivy scan, so a broken or vulnerable container is caught before merging |
 | **Dependency audit (backend)** and **Dependency audit (frontend)** status checks required | A vulnerable dependency above the audit threshold cannot reach `main` |
 | **Terraform checks** status check required | Infrastructure code must be formatted, valid and pass Checkov before merging |
 | **Ansible lint** status check required | Playbooks and roles must pass ansible-lint's production profile before merging |

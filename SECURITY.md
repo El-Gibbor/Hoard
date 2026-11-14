@@ -13,11 +13,11 @@ Every pull request to `main` and every push to another branch runs these scans i
 | **Dependency audit (backend)** / **(frontend)** | `npm audit` | `backend/` and `frontend/` package locks | A production dependency has a **moderate** or worse advisory, or any dependency (including dev tooling) has a **high** or worse one |
 | **Terraform checks** | `terraform fmt`, `terraform validate`, Checkov 3.4.5 | `terraform/` | Code is unformatted or invalid, or any Checkov check fails without an inline skip and reason |
 | **Ansible lint** | ansible-lint 26.11.0, `production` profile | `ansible/` | Any rule violation |
-| **Docker images** | Trivy (in progress, #64) | `hoard-api` and `hoard-web` images | Planned: fixable **critical** or **high** vulnerabilities |
+| **Docker images (api)** / **(web)** | Trivy 0.62.1 | The built `hoard-api` and `hoard-web` images, OS and Node packages | A **critical** or **high** vulnerability that has a fix. The image is scanned before it is published, so a failing image never reaches the registry |
 
 Production code gets the stricter audit threshold because it is what runs on the server. Dev tooling only runs on developer machines and in CI.
 
-Each scan uploads its report as a workflow artifact: `npm-audit-backend`, `npm-audit-frontend` and `checkov-report` (SARIF).
+Each scan uploads its report as a workflow artifact: `npm-audit-backend`, `npm-audit-frontend`, `checkov-report` (SARIF) and `trivy-api` / `trivy-web` (SARIF, all severities).
 
 ## Findings
 
@@ -30,7 +30,10 @@ Each scan uploads its report as a workflow artifact: `npm-audit-backend`, `npm-a
 | 5 | Checkov | `CKV_AZURE_10`: SSH open to the internet | High | **Prevented.** Caught when testing the scan; the NSG only allows port 22 from `var.admin_ip`, and the variable rejects `0.0.0.0/0`. |
 | 6 | ansible-lint | `syntax-check[unknown-module]`: `community.general.ufw` could not be resolved | Error | **Fixed.** Added `ansible/requirements.yml`; CI installs it before linting. |
 | 7 | ansible-lint | `var-naming[no-role-prefix]`: `hoard_up` and `hoard_migrate` registered inside the `app` role | Warning | **Fixed.** Renamed to `app_up` and `app_migrate`. |
-| 8 | Code review | [#57](https://github.com/El-Gibbor/Hoard/issues/57): a token keeps working after its user is deleted or demoted until it expires | Medium | **Open.** Tracked in #57; `requireAuth` should load the user and role from the database. |
+| 8 | Trivy | `hoard-api`: 10 high advisories (`brace-expansion`, `pacote`, `sigstore`, `picomatch`, `ip-address`), all inside the npm bundled with the Node base image | High | **Fixed.** The API runs with `node` alone, so the runtime stage deletes npm, npx and corepack. |
+| 9 | Trivy | `hoard-api`: CVE-2026-109518 in Debian `apt` / `libapt-pkg6.0` | High | **Fixed.** Base image bumped from `node:22.23.4` to `node:22.23.5` (pinned by digest). |
+| 10 | Trivy | `hoard-web`: 18 Alpine findings, including a critical `brotli-libs` CVE-2026-111497 and high ones in `nginx`, `curl`, `libexpat`, `libxslt`, `musl` and `zlib` | Critical | **Fixed.** Base image bumped to `nginx-unprivileged:1.30.6-alpine`, and the runtime stage runs `apk upgrade` so Alpine fixes apply before a new base image is published. Both images now report 0 fixable critical or high vulnerabilities. |
+| 11 | Code review | [#57](https://github.com/El-Gibbor/Hoard/issues/57): a token keeps working after its user is deleted or demoted until it expires | Medium | **Open.** Tracked in #57; `requireAuth` should load the user and role from the database. |
 
 ## Controls in place
 
