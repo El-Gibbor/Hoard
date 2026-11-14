@@ -56,9 +56,9 @@ On the virtual machine:
 
 ```bash
 sudo ufw status
-sudo sshd -T | grep -E 'permitrootlogin|passwordauthentication'
+sudo sshd -T | grep -E 'permitrootlogin|passwordauthentication|maxauthtries|x11forwarding'
 systemctl is-active fail2ban
-docker compose -f /opt/hoard/docker-compose.prod.yml ps
+sudo docker compose --env-file /opt/hoard/hoard.env -f /opt/hoard/docker-compose.prod.yml ps
 ```
 
-`ufw status` lists 22, 80 and 443. `permitrootlogin` and `passwordauthentication` are `no`. fail2ban is `active`. The Compose listing shows `db`, `api` and `web` running. Open `http://<public_ip>` in a browser.
+`ufw status` lists 22, 80 and 443. `permitrootlogin`, `passwordauthentication` and `x11forwarding` are `no`, and `maxauthtries` is `3`. fail2ban is `active`. The Compose listing shows `db`, `api` and `web` running. Open `http://<public_ip>` in a browser.

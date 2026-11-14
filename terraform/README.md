@@ -63,6 +63,8 @@ terraform apply
 
 `init` downloads the Azure provider. `plan` shows what will be created. `apply` asks you to type `yes`, then creates the resource group, network, firewall, public IP and VM. The first apply takes a few minutes.
 
+If `apply` fails with `SkuNotAvailable`, that VM size has no capacity in your region. Set another `vm_size` (for example `Standard_B2s_v2`) or `location` in `terraform.tfvars` and apply again. `az vm list-skus -l <location> --size Standard_B -o table` lists the sizes a region offers.
+
 ## Read the outputs
 
 ```bash

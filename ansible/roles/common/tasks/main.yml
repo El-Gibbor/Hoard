@@ -1,5 +1,11 @@
 ---
 # Refresh package lists and install the tools this role configures.
+- name: Upgrade installed packages
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    upgrade: safe
+
 - name: Install firewall, fail2ban and unattended upgrades
   ansible.builtin.apt:
     name:
@@ -7,9 +13,6 @@
       - fail2ban
       - unattended-upgrades
     state: present
-    update_cache: true
-    cache_valid_time: 3600
-    upgrade: safe
 
 # A drop-in file, so the packaged sshd_config is left alone.
 - name: Disable root login and password login
