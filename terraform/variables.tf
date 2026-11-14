@@ -26,7 +26,7 @@ variable "location" {
 variable "vm_size" {
   description = "Size of the application VM."
   type        = string
-  default     = "Standard_B1s"
+  default     = "Standard_B2ats_v2"
 }
 
 variable "admin_username" {
