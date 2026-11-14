@@ -8,6 +8,8 @@ The `docker` role installs Docker Engine and the Compose plugin from Docker's ap
 
 The `app` role writes a production Compose file, applies database migrations and seeds the categories and admin account with the `hoard-migrate` image, then starts Hoard. The API and the web app are pulled from `ghcr.io/el-gibbor/hoard-api` and `ghcr.io/el-gibbor/hoard-web`. The tag defaults to `main`, which the Publish workflow pushes on every merge. Postgres stays on the Docker network. The browser uses port 80.
 
+The deploy steps run in a `block` with a `rescue`. If migrating, starting or the health check fails, the play prints `docker compose ps` and the last 40 log lines of every container, then stops with the failing step's name. A failed image pull also says to make the packages public or set `ghcr_token`.
+
 ## Prerequisites
 
 - Terraform has been applied in `terraform/`, so `public_ip` and `admin_username` exist
@@ -29,15 +31,18 @@ ansible-vault encrypt group_vars/hoard/vault.yml
 
 `vault.yml` is not committed. If the container packages are private, set `ghcr_token` in that file to a GitHub token with `read:packages` before encrypting it.
 
-## Build the inventory
+## Inventory
 
-From the repository root:
+The inventory is dynamic. `ansible.cfg` points at `inventory/terraform.py`, which Ansible runs every time. It reads `terraform output -json` from `../terraform` and returns the VM in the `hoard` group, with `admin_username` as the SSH user and the private key from `ssh_command`. There is no file to generate or keep in sync: after `terraform apply` the playbook finds the new VM, and after `terraform destroy` the inventory is empty.
+
+Check what Ansible sees:
 
 ```bash
-sh ansible/inventory.sh
+cd ansible
+ansible-inventory --graph --ask-vault-pass
 ```
 
-The script reads `terraform output` and writes `ansible/inventory/hosts.ini`. That file is not committed. `ansible/inventory/hosts.ini.example` shows the same shape with a placeholder address.
+Set `HOARD_TERRAFORM_DIR` to read the outputs of a different Terraform directory.
 
 ## Run the playbook
 
