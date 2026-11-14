@@ -54,47 +54,110 @@
   changed_when: false
   no_log: true
 
-- name: Apply database migrations and seed
-  ansible.builtin.command:
-    argv:
-      - docker
-      - compose
-      - --env-file
-      - "{{ hoard_dir }}/hoard.env"
-      - -f
-      - "{{ hoard_dir }}/docker-compose.prod.yml"
-      - run
-      - --rm
-      - --pull
-      - missing
-      - migrate
-    chdir: "{{ hoard_dir }}"
-  register: app_migrate
-  changed_when: app_migrate.stdout is not search('No pending migrations to apply')
+- name: Deploy Hoard
+  block:
+    - name: Apply database migrations and seed
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --env-file
+          - "{{ hoard_dir }}/hoard.env"
+          - -f
+          - "{{ hoard_dir }}/docker-compose.prod.yml"
+          - run
+          - --rm
+          - --pull
+          - missing
+          - migrate
+        chdir: "{{ hoard_dir }}"
+      register: app_migrate
+      changed_when: app_migrate.stdout is not search('No pending migrations to apply')
 
-# Pull an image only when it is missing, so a second run does not count as a change.
-- name: Start Hoard
-  ansible.builtin.command:
-    argv:
-      - docker
-      - compose
-      - --env-file
-      - "{{ hoard_dir }}/hoard.env"
-      - -f
-      - "{{ hoard_dir }}/docker-compose.prod.yml"
-      - up
-      - -d
-      - --pull
-      - missing
-    chdir: "{{ hoard_dir }}"
-  register: app_up
-  changed_when: >-
-    app_up.stdout is search('Started|Created|Recreated') or
-    app_up.stderr is search('Started|Created|Recreated')
+    # Pull an image only when it is missing, so a second run does not count as a change.
+    - name: Start Hoard
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --env-file
+          - "{{ hoard_dir }}/hoard.env"
+          - -f
+          - "{{ hoard_dir }}/docker-compose.prod.yml"
+          - up
+          - -d
+          - --pull
+          - missing
+        chdir: "{{ hoard_dir }}"
+      register: app_up
+      changed_when: >-
+        app_up.stdout is search('Started|Created|Recreated') or
+        app_up.stderr is search('Started|Created|Recreated')
 
-- name: Wait until Hoard answers on port 80
-  ansible.builtin.wait_for:
-    host: 127.0.0.1
-    port: 80
-    delay: 3
-    timeout: 180
+    - name: Wait until Hoard answers on port 80
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 80
+        delay: 3
+        timeout: 180
+
+    - name: Check the API answers through nginx
+      ansible.builtin.uri:
+        url: http://127.0.0.1/api/health
+        status_code: 200
+      register: app_health
+      retries: 12
+      delay: 5
+      until: app_health.status == 200
+
+  rescue:
+    - name: Collect container status
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --env-file
+          - "{{ hoard_dir }}/hoard.env"
+          - -f
+          - "{{ hoard_dir }}/docker-compose.prod.yml"
+          - ps
+          - --all
+        chdir: "{{ hoard_dir }}"
+      register: app_ps
+      changed_when: false
+      failed_when: false
+
+    - name: Collect recent container logs
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --env-file
+          - "{{ hoard_dir }}/hoard.env"
+          - -f
+          - "{{ hoard_dir }}/docker-compose.prod.yml"
+          - logs
+          - --tail
+          - "40"
+          - --no-color
+        chdir: "{{ hoard_dir }}"
+      register: app_logs
+      changed_when: false
+      failed_when: false
+
+    - name: Show container status and logs
+      ansible.builtin.debug:
+        msg: "{{ (app_ps.stdout_lines | default([])) + [''] + (app_logs.stdout_lines | default([])) }}"
+
+    - name: Stop with the reason
+      vars:
+        app_error: "{{ (ansible_failed_result.stderr | default('')) ~ (ansible_failed_result.msg | default('')) }}"
+      ansible.builtin.fail:
+        msg: >-
+          Deploying Hoard failed at "{{ ansible_failed_task.name }}".
+          {% if app_error is search('denied|unauthorized|manifest unknown|not found') %}
+          An image could not be pulled: make the ghcr.io/el-gibbor packages public,
+          or set ghcr_token in vault.yml to a token with read:packages.
+          {% else %}
+          The container status and logs above show the cause.
+          {% endif %}
