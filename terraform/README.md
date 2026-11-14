@@ -1,8 +1,26 @@
 # Hoard on Azure
 
-This folder builds one virtual machine for Hoard. The network and firewall are already defined. This adds the machine, a static public IP, and outputs Ansible can read without copying values by hand.
+This folder builds everything Hoard needs on Azure: a resource group, a virtual network and subnet, a network security group, and an Ubuntu VM with a static public IP. Its outputs give Ansible the address and login without copying values by hand.
 
 Each teammate applies this in their own Azure subscription. Use your own `prefix` so the resource names do not clash.
+
+## Layout
+
+```
+terraform/
+├── main.tf              # calls the two modules and sets the inbound rules
+├── variables.tf         # everything a teammate sets in terraform.tfvars
+├── locals.tf            # tags added to every resource
+├── outputs.tf           # public_ip, vm_id, resource_group_name, admin_username, ssh_command
+├── moved.tf             # maps the old flat resource names to the module addresses
+└── modules/
+    ├── network/         # resource group, VNet, subnet, NSG and its subnet association
+    └── compute/         # public IP, network interface and the VM
+```
+
+- **`modules/network`** builds one NSG rule per entry in `inbound_rules` with `for_each`. The root allows SSH from `admin_ip` and HTTP/HTTPS from anywhere; Azure denies everything else. The module refuses a rule that opens port 22 to `*`.
+- **`modules/compute`** takes the resource group, location and subnet from the network module, so the VM always lands in that network.
+- **`moved.tf`** lets a deployment made before the split keep its resources. Terraform renames them in state instead of destroying and recreating them.
 
 ## Prerequisites
 
