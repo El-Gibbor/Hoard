@@ -1,16 +1,16 @@
 output "public_ip" {
   description = "Static public IP of the VM."
-  value       = azurerm_public_ip.ip.ip_address
+  value       = module.compute.public_ip
 }
 
 output "vm_id" {
   description = "Azure resource ID of the VM."
-  value       = azurerm_linux_virtual_machine.vm.id
+  value       = module.compute.vm_id
 }
 
 output "resource_group_name" {
   description = "Resource group that holds this deployment."
-  value       = azurerm_resource_group.rg.name
+  value       = module.network.resource_group_name
 }
 
 output "admin_username" {
@@ -20,5 +20,5 @@ output "admin_username" {
 
 output "ssh_command" {
   description = "Command that opens a shell on the VM. The private key is the public key path without .pub."
-  value       = "ssh -i ${trimsuffix(pathexpand(var.ssh_public_key_path), ".pub")} ${var.admin_username}@${azurerm_public_ip.ip.ip_address}"
+  value       = "ssh -i ${trimsuffix(pathexpand(var.ssh_public_key_path), ".pub")} ${var.admin_username}@${module.compute.public_ip}"
 }
