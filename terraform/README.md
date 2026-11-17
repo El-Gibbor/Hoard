@@ -129,7 +129,7 @@ terraform plan
 terraform apply
 ```
 
-The first apply creates 38 resources (41 with `deployer_principal_id`) and takes about 10 minutes, most of it the database. If it fails with `SkuNotAvailable`, set another size or region; `az vm list-skus -l <location> --size Standard_B -o table` lists what a region offers.
+The first apply creates 39 resources (42 with `deployer_principal_id`) and takes about 10 minutes, most of it the database. If it fails with `SkuNotAvailable`, set another size or region; `az vm list-skus -l <location> --size Standard_B -o table` lists what a region offers.
 
 ## Outputs
 
