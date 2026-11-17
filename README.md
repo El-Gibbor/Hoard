@@ -2,6 +2,8 @@
 
 > **Know where your MoMo went.** A spending and budget tracker for young Rwandans who pay mostly with mobile money and cash.
 
+**Live app:** [http://102.133.171.40](http://102.133.171.40) · [Health](http://102.133.171.40/api/health) · [Architecture](#architecture) · [Deployments](https://github.com/El-Gibbor/Hoard/deployments/production) · [Operations](#operations) · [Changelog](CHANGELOG.md)
+
 ## Problem Statement
 
 University students and young professionals in **Kigali, Rwanda**, handle most of their money through mobile money (MTN MoMo, Airtel Money) and cash. Many budgeting apps work from bank-statement data, but most young Rwandans are not banked. Their spending is spread across small MoMo transfers, merchant payments and cash, with no single place to see it, and they run out of money before the month ends.
@@ -51,7 +53,8 @@ Hoard is built for people whose money moves through a MoMo wallet and their pock
 | Backend | Node.js, TypeScript, Express, Zod, JWT |
 | Database | PostgreSQL with Prisma ORM |
 | Testing | Vitest, Supertest |
-| DevOps | Docker, Docker Compose, GitHub Actions |
+| DevOps | Docker, Docker Compose, GitHub Actions, Trivy, Checkov |
+| Infrastructure | Azure (VNet, VMs, Load Balancer, PostgreSQL Flexible Server, Container Registry), Terraform, Ansible |
 
 ## Getting Started
 
@@ -337,7 +340,7 @@ Compose reads these from a `.env` file in the repository root. All of them are o
 
 ## Continuous Integration
 
-[GitHub Actions](.github/workflows/ci.yml) runs on every pull request to `main` and on every push to any other branch. A push straight to `main` does not run it, because changes reach `main` only through a pull request.
+[GitHub Actions](.github/workflows/ci.yml) runs on every pull request to `main` and on every push to any other branch. On `main`, the [CD workflow](#continuous-deployment) calls it first, so a merge is deployed only after the same checks pass again.
 
 | Job | What it does | Fails when |
 | --- | --- | --- |
@@ -352,7 +355,7 @@ Any failing step fails its job, and a failed job marks the pull request red. Whi
 
 **Images.** On a pull request the images are built and then discarded. On a push to a branch they are also published to GitHub Container Registry as `ghcr.io/el-gibbor/hoard-api` and `ghcr.io/el-gibbor/hoard-web`, tagged with the branch name (slashes become dashes) and the commit SHA. Publishing uses the workflow's built-in `GITHUB_TOKEN`, so no personal token is stored anywhere.
 
-**Deployable images.** CI does not run on `main`, so a separate [Publish](.github/workflows/publish.yml) workflow runs on every push to `main` (and on demand). It publishes `hoard-api`, `hoard-web` and `hoard-migrate` (the Dockerfile's `migrate` stage, which applies migrations and seeds the database) tagged `main` and with the commit SHA. The Ansible playbook deploys these tags.
+**Deployable images.** Branch images go to GitHub Container Registry for testing only. The images that run in production are built by [CD](#continuous-deployment) from `main`, scanned again and pushed to the Azure Container Registry, tagged with the commit SHA and `main`.
 
 **Speed.** npm downloads are cached per package lock, and Docker layers are cached in GitHub Actions, so unchanged layers are not rebuilt. A newer push to the same branch cancels the run that is still going.
 
@@ -361,6 +364,129 @@ Any failing step fails its job, and a failed job marks the pull request red. Whi
 **Artifacts.** Each run keeps the test reports it produced, the npm audit reports (`npm-audit-backend`, `npm-audit-frontend`), the Checkov report (`checkov-report`, SARIF), the Trivy reports (`trivy-api`, `trivy-web`, SARIF), and the built frontend (`frontend-build`) when Frontend checks pass. A run that fails before its tests has no report. Download them from the run's summary page under *Artifacts*.
 
 To run the same checks before pushing, use `npm run lint && npm run typecheck && npm test && npm run build` in `backend/` (with the Compose database running) and in `frontend/`. For the security checks, run `npm audit --omit=dev --audit-level=moderate && npm audit --audit-level=high` in each app, `terraform fmt -check -recursive && terraform validate && checkov -d .` in `terraform/`, and `ansible-galaxy collection install -r requirements.yml && ansible-lint --profile production` in `ansible/`. Findings and how each was handled are in [SECURITY.md](SECURITY.md).
+
+## Architecture
+
+Hoard runs on Azure. Everything below is created by [Terraform](terraform), configured by [Ansible](ansible) and deployed by [CD](#continuous-deployment).
+
+```mermaid
+flowchart LR
+  dev([Developer]) -->|pull request| gh[GitHub<br/>CI checks + review]
+  gh -->|merge to main| cd[CD workflow]
+  cd -->|scanned images| acr[(Azure Container<br/>Registry)]
+  cd -->|Ansible over SSH| bastion
+
+  user([Browser]) -->|HTTP 80| lb[Load balancer<br/>public IP]
+
+  subgraph vnet[Azure VNet 10.0.0.0/16]
+    subgraph pub[bastion subnet]
+      bastion[Bastion VM]
+    end
+    subgraph priv[app subnet, no public IPs]
+      vm[App VM<br/>nginx web + Express API<br/>in Docker Compose]
+    end
+    subgraph data[db subnet]
+      pg[(PostgreSQL<br/>Flexible Server)]
+    end
+  end
+
+  lb -->|80 + /healthz probe| vm
+  bastion -->|SSH| vm
+  vm -->|5432 over TLS| pg
+  vm -->|pull by commit SHA| acr
+```
+
+- **Traffic:** browsers reach the load balancer's public IP. It forwards port 80 to nginx in the `web` container, which serves the React app and proxies `/api` to the `api` container.
+- **Access:** the app VM has no public IP. SSH goes through the bastion, and the bastion accepts SSH only from the admin's IP (and from the CD runner during a deploy).
+- **Data:** the API talks to Azure Database for PostgreSQL over TLS. The server has no public address and accepts connections from the app subnet only.
+- **Images:** CD pushes every image to a private Azure Container Registry, tagged with the commit SHA. The VM pulls with a short-lived Entra ID token; the registry has no admin password.
+- **State:** Terraform state lives in an Azure Storage account, shared by the team and CD.
+
+Details: [terraform/README.md](terraform/README.md) (network rules, modules, costs), [ansible/README.md](ansible/README.md) (roles and inventory), [SECURITY.md](SECURITY.md) (scans, findings and controls).
+
+## Continuous Deployment
+
+[`cd.yml`](.github/workflows/cd.yml), **Deploy to Production**, runs on every push to `main`, which branch protection only allows through a reviewed pull request. One deploy runs at a time; a newer merge waits rather than cancelling a deploy halfway.
+
+| Stage | What happens | Stops the deploy when |
+| --- | --- | --- |
+| **CI** | Calls [`ci.yml`](.github/workflows/ci.yml): lint, type-check, tests, build, npm audit, Terraform + Checkov, ansible-lint, Docker build + Trivy | Any check fails |
+| **Read the infrastructure** | Signs in to Azure with OIDC and reads the registry, resource group and app URL from the shared Terraform state | The state cannot be read |
+| **Publish to ACR** | Builds `hoard-api`, `hoard-migrate` and `hoard-web`, scans each with Trivy, then pushes it tagged with the commit SHA and `main` | An image has a fixable critical or high vulnerability |
+| **Deploy with Ansible** | Opens SSH on the bastion for the runner's IP, runs the playbook with `image_tag=<sha>` (migrate, start, local health check), then removes the rule, even on failure | The playbook fails; its `rescue` prints container status and logs |
+| **Smoke test** | Calls `/healthz` and `/api/health` through the load balancer until the API reports `"database":"ok"` | The app is not healthy within two minutes |
+
+The run's summary shows the deployed tag and the app URL, and the `production` environment on GitHub links to the live app.
+
+**Credentials.** CD signs in with OIDC: the app registration trusts tokens for `repo:El-Gibbor/Hoard:environment:production` only, and the `production` environment only accepts protected branches. No Azure secret is stored. The identity can read the resource group, push to the registry, edit the bastion's NSG and read the Terraform state, nothing else.
+
+## Operations
+
+### Set up from zero
+
+Everything an engineer needs to build a new production environment, in order. Commands run from the repository root unless a step says otherwise.
+
+1. **Tools:** Terraform 1.6+, Azure CLI, Ansible (`sudo apt install ansible`), GitHub CLI. Sign in with `az login` and `gh auth login`.
+2. **SSH key:** `ssh-keygen -t ed25519 -f ~/.ssh/hoard -N ""`
+3. **Terraform state:** `cd terraform && ./bootstrap.sh hoard-yourname southafricanorth`
+4. **CD identity:**
+   ```bash
+   APP_ID=$(az ad app create --display-name hoard-github-cd --query appId -o tsv)
+   SP_ID=$(az ad sp create --id "$APP_ID" --query id -o tsv)
+   az ad app federated-credential create --id "$APP_ID" --parameters '{
+     "name": "github-production",
+     "issuer": "https://token.actions.githubusercontent.com",
+     "subject": "repo:El-Gibbor/Hoard:environment:production",
+     "audiences": ["api://AzureADTokenExchange"]}'
+   # Let CD read the Terraform state
+   az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal \
+     --role "Storage Blob Data Reader" \
+     --scope "$(az storage account show -n <state account from backend.hcl> -g hoard-yourname-tfstate-rg --query id -o tsv)"
+   ```
+5. **Infrastructure:** copy `terraform/terraform.tfvars.example` to `terraform.tfvars`, fill it in with `deployer_principal_id = "<SP_ID>"`, then:
+   ```bash
+   terraform init -backend-config=backend.hcl
+   terraform apply
+   ```
+6. **GitHub environment** `production` (Settings → Environments), with deployments limited to protected branches:
+
+   | Kind | Name | Value |
+   | --- | --- | --- |
+   | Variable | `AZURE_CLIENT_ID` | `APP_ID` from step 4 |
+   | Variable | `AZURE_TENANT_ID` | `az account show --query tenantId -o tsv` |
+   | Variable | `AZURE_SUBSCRIPTION_ID` | `az account show --query id -o tsv` |
+   | Variable | `TFSTATE_RESOURCE_GROUP`, `TFSTATE_STORAGE_ACCOUNT` | From `terraform/backend.hcl` |
+   | Secret | `SSH_PRIVATE_KEY` | Contents of `~/.ssh/hoard` |
+   | Secret | `JWT_SECRET` | At least 32 random characters |
+   | Secret | `ADMIN_PASSWORD` | Password for the seeded admin account |
+
+7. **First deploy:** merge to `main`, or run **Deploy to Production** from the Actions tab. To deploy from a laptop instead, push images to ACR and follow [ansible/README.md](ansible/README.md).
+
+### Runbook
+
+| Task | How |
+| --- | --- |
+| Is it up? | `curl -s "$(terraform -chdir=terraform output -raw app_url)/api/health"` should return `"status":"ok","database":"ok"` |
+| Shell on the app VM | `$(terraform -chdir=terraform output -raw ssh_command)` |
+| Container status | On the VM: `sudo docker compose --env-file /opt/hoard/hoard.env -f /opt/hoard/docker-compose.prod.yml ps` |
+| Logs | On the VM: `sudo docker compose --env-file /opt/hoard/hoard.env -f /opt/hoard/docker-compose.prod.yml logs --tail 100 api web`. Logs rotate at 5 × 10 MB per container. |
+| Which version is live? | The latest successful **Deploy to Production** run, or the image tag in `docker compose ps` on the VM |
+| Roll back | Actions → **Deploy to Production** → Run workflow, with `image_tag` set to an earlier commit SHA. It skips the build and deploys images already in ACR. |
+| Redeploy the current version | Run **Deploy to Production** with the current SHA |
+| SSH from a new network | Update `admin_ip` in `terraform.tfvars`, then `terraform apply` |
+| Tear down | `terraform -chdir=terraform destroy`. This deletes the database and its data. |
+
+### Health signals
+
+Each layer checks the one below it, so a failure shows up where it starts:
+
+| Signal | Where | What it tells an operator |
+| --- | --- | --- |
+| `/api/health` | API, through nginx | `200` with `"database":"ok"`: the API is up and the database answers. `503` with `"database":"unreachable"`: the API runs but cannot reach PostgreSQL. |
+| Container healthchecks | Docker on the VM | `api` calls `/api/health` and `web` calls `/healthz` every 15 seconds. `docker compose ps` shows `healthy` or `unhealthy`, and `web` only starts once `api` is healthy. |
+| Load balancer probe | Azure (Load balancer → Insights / Metrics → *Health Probe Status*) | `/healthz` every 5 seconds. Two failures take the VM out of rotation, which shows as 0% availability. |
+| Deploy smoke test | CD run summary | Whether the build just deployed answers through the load balancer with a working database |
+| Playbook `rescue` | CD logs | On a failed deploy: the failing step, `docker compose ps` and the last 40 log lines of each container |
 
 ## Branch Protection
 
@@ -401,6 +527,7 @@ Work is planned on the [Hoard GitHub Projects board](https://github.com/users/El
 | Formative 1 | Ideation, planning and the initial codebase |
 | Formative 2 | CI pipeline for a containerised application |
 | Formative 3 | Infrastructure as code and DevSecOps |
+| Summative | The complete pipeline: private infrastructure, managed database, registry and continuous deployment |
 
 Pull requests close their issue with `Closes #N`, so the board updates when work merges.
 
