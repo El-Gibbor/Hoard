@@ -1,0 +1,265 @@
+name: Deploy to Production
+
+# A merge to main runs every CI check, publishes the images to ACR and deploys them.
+# Run it by hand with an older commit SHA as image_tag to roll back without rebuilding.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Commit SHA of images already in ACR to deploy. Leave empty to build this commit."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+# One deploy at a time. A newer merge waits instead of cancelling a deploy halfway.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: "true"
+  ARM_USE_OIDC: "true"
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+jobs:
+  ci:
+    name: CI
+    if: inputs.image_tag == ''
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      packages: write
+
+  # Reads the deployment's addresses from the shared Terraform state.
+  infra:
+    name: Read the infrastructure
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      acr_name: ${{ steps.out.outputs.acr_name }}
+      acr_login_server: ${{ steps.out.outputs.acr_login_server }}
+      app_url: ${{ steps.out.outputs.app_url }}
+      resource_group: ${{ steps.out.outputs.resource_group }}
+      bastion_nsg: ${{ steps.out.outputs.bastion_nsg }}
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.1
+          terraform_wrapper: false
+
+      - name: Initialise with the remote state
+        run: >-
+          terraform init -input=false
+          -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}"
+          -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }}"
+          -backend-config="container_name=tfstate"
+          -backend-config="key=hoard.tfstate"
+          -backend-config="use_azuread_auth=true"
+
+      - name: Read the outputs
+        id: out
+        run: |
+          {
+            echo "acr_name=$(terraform output -raw acr_name)"
+            echo "acr_login_server=$(terraform output -raw acr_login_server)"
+            echo "app_url=$(terraform output -raw app_url)"
+            echo "resource_group=$(terraform output -raw resource_group_name)"
+            echo "bastion_nsg=$(terraform output -raw bastion_nsg_name)"
+          } >> "$GITHUB_OUTPUT"
+
+  images:
+    name: Publish ${{ matrix.image }} to ACR
+    needs: [ci, infra]
+    if: inputs.image_tag == ''
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - image: hoard-api
+            context: .
+            file: Dockerfile
+            target: runtime
+          - image: hoard-migrate
+            context: .
+            file: Dockerfile
+            target: migrate
+          - image: hoard-web
+            context: frontend
+            file: frontend/Dockerfile
+            target: ""
+    env:
+      IMAGE: ${{ needs.infra.outputs.acr_login_server }}/${{ matrix.image }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to ACR
+        run: az acr login --name "${{ needs.infra.outputs.acr_name }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build the image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          load: true
+          provenance: false
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:main
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+      # The exact image that is pushed is scanned, so a vulnerable build never reaches ACR.
+      - name: Scan the image with Trivy
+        run: >-
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy:0.62.1 image --quiet --scanners vuln --ignore-unfixed
+          --severity CRITICAL,HIGH --exit-code 1
+          "$IMAGE:${{ github.sha }}"
+
+      - name: Push to ACR
+        run: |
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:main"
+
+  deploy:
+    name: Deploy with Ansible
+    needs: [infra, images]
+    # Runs after a build, or on its own for a rollback to an existing tag.
+    if: always() && needs.infra.result == 'success' && (needs.images.result == 'success' || inputs.image_tag != '')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ needs.infra.outputs.app_url }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      IMAGE_TAG: ${{ inputs.image_tag || github.sha }}
+      RESOURCE_GROUP: ${{ needs.infra.outputs.resource_group }}
+      BASTION_NSG: ${{ needs.infra.outputs.bastion_nsg }}
+      APP_URL: ${{ needs.infra.outputs.app_url }}
+      HOARD_SSH_KEY: ${{ github.workspace }}/.ssh/hoard
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.1
+          terraform_wrapper: false
+
+      # The inventory script reads the state, so it needs an initialised directory.
+      - name: Initialise with the remote state
+        working-directory: terraform
+        run: >-
+          terraform init -input=false
+          -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}"
+          -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }}"
+          -backend-config="container_name=tfstate"
+          -backend-config="key=hoard.tfstate"
+          -backend-config="use_azuread_auth=true"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible
+        working-directory: ansible
+        run: |
+          pip install "ansible-core>=2.17,<2.18"
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Write the SSH key and the app secrets
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          install -d -m 700 "$(dirname "$HOARD_SSH_KEY")"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOARD_SSH_KEY"
+          chmod 600 "$HOARD_SSH_KEY"
+          umask 077
+          # JSON is valid YAML, and json.dumps escapes any quotes in the secrets.
+          python -c 'import json, os; print(json.dumps({"jwt_secret": os.environ["JWT_SECRET"], "admin_password": os.environ["ADMIN_PASSWORD"]}))' \
+            > ansible/group_vars/hoard/vault.yml
+
+      # The bastion accepts SSH only from known addresses, so the runner's address is allowed for this run.
+      - name: Allow this runner through the bastion firewall
+        run: |
+          ip="$(curl -fsS https://api.ipify.org)"
+          az network nsg rule create -g "$RESOURCE_GROUP" --nsg-name "$BASTION_NSG" \
+            -n cd-runner --priority 200 --direction Inbound --access Allow --protocol Tcp \
+            --source-address-prefixes "$ip/32" --destination-port-ranges 22 -o none
+
+      - name: Run the playbook
+        working-directory: ansible
+        run: ansible-playbook playbook.yml -e "image_tag=$IMAGE_TAG"
+
+      - name: Remove the runner from the bastion firewall
+        if: always()
+        run: az network nsg rule delete -g "$RESOURCE_GROUP" --nsg-name "$BASTION_NSG" -n cd-runner
+
+      # Through the load balancer, as a user would reach it.
+      - name: Smoke test the live app
+        run: |
+          for _ in $(seq 1 20); do
+            if curl -fsS "$APP_URL/healthz" >/dev/null && curl -fsS "$APP_URL/api/health" | grep -q '"database":"ok"'; then
+              echo "Hoard $IMAGE_TAG is live at $APP_URL"
+              exit 0
+            fi
+            sleep 6
+          done
+          echo "::error::$APP_URL did not report healthy within two minutes"
+          exit 1
+
+      - name: Summarise the deploy
+        if: always()
+        run: |
+          {
+            echo "### Deploy to Production"
+            echo "- Image tag: \`$IMAGE_TAG\`"
+            echo "- App: $APP_URL"
+            echo "- Result: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"
