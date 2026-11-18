@@ -10,7 +10,7 @@ Every pull request to `main` and every push to another branch runs these scans i
 
 | Job | Tool | Scope | Fails when |
 | --- | --- | --- | --- |
-| **Dependency audit (backend)** / **(frontend)** | `npm audit` | `backend/` and `frontend/` package locks | A production dependency has a **moderate** or worse advisory, or any dependency (including dev tooling) has a **high** or worse one |
+| **Dependency audit (backend)** / **(frontend)** | `npm audit` | `backend/` and `frontend/` package locks | A production dependency has a **moderate** or worse advisory, or any dependency (including dev tooling) has a **high** or worse one that is not accepted in [`.npm-audit-allowlist.json`](.npm-audit-allowlist.json). An accepted advisory fails again once its review date passes |
 | **Terraform checks** | `terraform fmt`, `terraform validate`, Checkov 3.4.5 | `terraform/` | Code is unformatted or invalid, or any Checkov check fails without an inline skip and reason |
 | **Ansible lint** | ansible-lint 26.11.0, `production` profile | `ansible/` | Any rule violation |
 | **Docker images (api)** / **(web)** | Trivy 0.62.1 | The built `hoard-api` and `hoard-web` images, OS and Node packages | A **critical** or **high** vulnerability that has a fix. The image is scanned before it is published, so a failing image never reaches the registry |
@@ -34,6 +34,7 @@ Each scan uploads its report as a workflow artifact: `npm-audit-backend`, `npm-a
 | 9 | Trivy | `hoard-api`: CVE-2026-109518 in Debian `apt` / `libapt-pkg6.0` | High | **Fixed.** Base image bumped from `node:22.23.4` to `node:22.23.5` (pinned by digest). |
 | 10 | Trivy | `hoard-web`: 18 Alpine findings, including a critical `brotli-libs` CVE-2026-111497 and high ones in `nginx`, `curl`, `libexpat`, `libxslt`, `musl` and `zlib` | Critical | **Fixed.** Base image bumped to `nginx-unprivileged:1.30.6-alpine`, and the runtime stage runs `apk upgrade` so Alpine fixes apply before a new base image is published. Both images now report 0 fixable critical or high vulnerabilities. |
 | 11 | Code review | [#57](https://github.com/El-Gibbor/Hoard/issues/57): a token keeps working after its user is deleted or demoted until it expires | Medium | **Open.** Tracked in #57; `requireAuth` should load the user and role from the database. |
+| 12 | npm audit | [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf): `picomatch` ReDoS through repeated extglobs, pulled in by `vitest` and `vite` in both apps | High | **Accepted until 2026-12-31.** No patched release exists (4.0.7 is the latest and is affected), and `npm audit fix --force` would only downgrade vitest. Dev tooling only; not in either image, and the production audit passes. Listed in `.npm-audit-allowlist.json` with the reason and review date, so the audit fails again if it is still unfixed on that date or if any other high advisory appears. |
 
 ## Controls in place
 

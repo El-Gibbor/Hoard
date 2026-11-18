@@ -1,0 +1,8 @@
+[
+  {
+    "id": "GHSA-fc5q-39xc-vjpf",
+    "package": "picomatch",
+    "reason": "ReDoS in picomatch <= 4.0.7, the latest release, so there is no fix to install. It only reaches us through vitest and vite, which run in tests and the frontend build, never in a production image.",
+    "review_by": "2026-12-31"
+  }
+]
