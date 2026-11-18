@@ -418,7 +418,7 @@ Details: [terraform/README.md](terraform/README.md) (network rules, modules, cos
 
 The run's summary shows the deployed tag and the app URL, and the `production` environment on GitHub links to the live app.
 
-**Credentials.** CD signs in with OIDC: the app registration trusts tokens for `repo:El-Gibbor/Hoard:environment:production` only, and the `production` environment only accepts protected branches. No Azure secret is stored. The identity can read the resource group, push to the registry, edit the bastion's NSG and read the Terraform state, nothing else.
+**Credentials.** CD signs in with OIDC: the app registration trusts tokens for this repository's `production` environment only (subject `repo:El-Gibbor@107848793/Hoard@1428938948:environment:production`; GitHub names the owner and repository by ID), and the `production` environment only accepts protected branches. No Azure secret is stored. The identity can read the resource group, push to the registry, edit the bastion's NSG and read the Terraform state, nothing else.
 
 ## Operations
 
@@ -433,16 +433,20 @@ Everything an engineer needs to build a new production environment, in order. Co
    ```bash
    APP_ID=$(az ad app create --display-name hoard-github-cd --query appId -o tsv)
    SP_ID=$(az ad sp create --id "$APP_ID" --query id -o tsv)
-   az ad app federated-credential create --id "$APP_ID" --parameters '{
-     "name": "github-production",
-     "issuer": "https://token.actions.githubusercontent.com",
-     "subject": "repo:El-Gibbor/Hoard:environment:production",
-     "audiences": ["api://AzureADTokenExchange"]}'
+   # GitHub names the owner and repository by ID in the token's subject
+   OWNER_ID=$(gh api users/El-Gibbor --jq .id)
+   REPO_ID=$(gh api repos/El-Gibbor/Hoard --jq .id)
+   az ad app federated-credential create --id "$APP_ID" --parameters "{
+     \"name\": \"github-production\",
+     \"issuer\": \"https://token.actions.githubusercontent.com\",
+     \"subject\": \"repo:El-Gibbor@$OWNER_ID/Hoard@$REPO_ID:environment:production\",
+     \"audiences\": [\"api://AzureADTokenExchange\"]}"
    # Let CD read the Terraform state
    az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal \
      --role "Storage Blob Data Reader" \
      --scope "$(az storage account show -n <state account from backend.hcl> -g hoard-yourname-tfstate-rg --query id -o tsv)"
    ```
+   If the first CD run fails with `AADSTS700213: No matching federated identity record`, the error shows the exact subject GitHub sent. Add a credential with that subject.
 5. **Infrastructure:** copy `terraform/terraform.tfvars.example` to `terraform.tfvars`, fill it in with `deployer_principal_id = "<SP_ID>"`, then:
    ```bash
    terraform init -backend-config=backend.hcl
