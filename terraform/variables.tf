@@ -73,3 +73,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "deployer_principal_id" {
+  description = "Object ID of the service principal GitHub Actions deploys as. Leave unset to skip its role assignments."
+  type        = string
+  default     = null
+}

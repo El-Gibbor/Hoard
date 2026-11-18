@@ -22,3 +22,8 @@ output "nsg_names" {
   description = "NSG names keyed by subnet name."
   value       = { for k, n in azurerm_network_security_group.this : k => n.name }
 }
+
+output "nsg_ids" {
+  description = "NSG IDs keyed by subnet name."
+  value       = { for k, n in azurerm_network_security_group.this : k => n.id }
+}
