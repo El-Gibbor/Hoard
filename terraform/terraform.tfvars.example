@@ -11,3 +11,6 @@ admin_ip            = "203.0.113.10/32"
 tags = {
   team = "hoard"
 }
+
+# Object ID of the GitHub Actions service principal (see the README). Leave out to skip its roles.
+# deployer_principal_id = "00000000-0000-0000-0000-000000000000"

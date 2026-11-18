@@ -96,3 +96,12 @@ module "database" {
   sku_name            = var.db_sku_name
   tags                = local.tags
 }
+
+module "registry" {
+  source = "./modules/registry"
+
+  prefix              = var.prefix
+  location            = module.network.location
+  resource_group_name = module.network.resource_group_name
+  tags                = local.tags
+}

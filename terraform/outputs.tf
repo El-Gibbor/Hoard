@@ -63,3 +63,13 @@ output "database_password" {
   value       = module.database.admin_password
   sensitive   = true
 }
+
+output "acr_name" {
+  description = "Container registry name, for az acr login."
+  value       = module.registry.name
+}
+
+output "acr_login_server" {
+  description = "Registry host that image names start with."
+  value       = module.registry.login_server
+}
