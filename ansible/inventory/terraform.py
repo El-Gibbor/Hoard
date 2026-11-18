@@ -29,24 +29,48 @@ def terraform_outputs():
 
 def private_key(ssh_command):
     parts = shlex.split(ssh_command)
-    return parts[parts.index("-i") + 1] if "-i" in parts else None
+    return os.environ.get("HOARD_SSH_KEY") or (parts[parts.index("-i") + 1] if "-i" in parts else None)
 
 
 def inventory():
     outputs = terraform_outputs()
-    host = outputs.get("public_ip")
-    if not host:
-        print(f"No public_ip output in {TERRAFORM_DIR}. Run terraform apply first.", file=sys.stderr)
+    bastion = outputs.get("bastion_public_ip")
+    app = outputs.get("app_private_ip")
+    if not bastion or not app:
+        print(f"No bastion_public_ip or app_private_ip output in {TERRAFORM_DIR}. Run terraform apply first.", file=sys.stderr)
         return EMPTY
 
-    hostvars = {"ansible_user": outputs.get("admin_username", "hoard")}
+    user = outputs.get("admin_username", "hoard")
     key = private_key(outputs.get("ssh_command", ""))
+    login = {"ansible_user": user}
     if key:
-        hostvars["ansible_ssh_private_key_file"] = key
+        login["ansible_ssh_private_key_file"] = key
+
+    # The app VM has no public IP, so SSH hops through the bastion with the same key.
+    jump = ["ssh", "-o", "StrictHostKeyChecking=accept-new", "-W", "%h:%p"]
+    if key:
+        jump += ["-i", key]
+    jump.append(f"{user}@{bastion}")
+
+    # A new host's key is trusted on first contact, as on a fresh CD runner. A changed key is still refused.
+    trust_new = "-o StrictHostKeyChecking=accept-new"
 
     return {
-        "hoard": {"hosts": [host]},
-        "_meta": {"hostvars": {host: hostvars}},
+        "bastion": {"hosts": [bastion], "vars": {"ansible_ssh_common_args": trust_new}},
+        "hoard": {
+            "hosts": [app],
+            "vars": {
+                "ansible_ssh_common_args": f"{trust_new} -o ProxyCommand={shlex.quote(shlex.join(jump))}",
+                "app_url": outputs.get("app_url"),
+                "acr_name": outputs.get("acr_name"),
+                "acr_login_server": outputs.get("acr_login_server"),
+                "db_host": outputs.get("database_host"),
+                "db_name": outputs.get("database_name"),
+                "db_user": outputs.get("database_username"),
+                "db_password": outputs.get("database_password"),
+            },
+        },
+        "_meta": {"hostvars": {bastion: dict(login), app: dict(login)}},
     }
 
 

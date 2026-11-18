@@ -1,17 +1,19 @@
 ---
-- name: Check the vault secrets are loaded
+- name: Check the secrets and Terraform outputs are loaded
   ansible.builtin.assert:
     that:
-      - postgres_password is defined
-      - postgres_password | length > 0
       - jwt_secret is defined
       - jwt_secret | length >= 32
       - admin_password is defined
       - admin_password | length > 0
+      - db_host | default('') | length > 0
+      - db_password | default('') | length > 0
+      - acr_login_server | default('') | length > 0
     fail_msg: >-
-      Create group_vars/hoard/vault.yml from vault.yml.example, set the
-      database password, a JWT secret of at least 32 characters and the
-      admin password, then encrypt it with ansible-vault.
+      Create group_vars/hoard/vault.yml from vault.yml.example with a JWT secret
+      of at least 32 characters and the admin password, and run terraform apply
+      so the inventory can read the database and registry outputs.
+  no_log: true
 
 - name: Create the Hoard directory
   ansible.builtin.file:
@@ -39,18 +41,28 @@
     mode: "0600"
   no_log: true
 
-# A private package needs a token. An empty token means the images are public.
-- name: Log in to GitHub Container Registry
+# A short-lived Entra ID token from the controller's az login, so no registry password is stored.
+- name: Get a registry token
+  ansible.builtin.command:
+    argv: [az, acr, login, --name, "{{ acr_name }}", --expose-token, --query, accessToken, --output, tsv]
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: app_acr_token
+  changed_when: false
+  no_log: true
+  when: acr_token is not defined
+
+- name: Log in to the container registry
   ansible.builtin.command:
     argv:
       - docker
       - login
-      - ghcr.io
+      - "{{ acr_login_server }}"
       - -u
-      - "{{ ghcr_username }}"
+      - 00000000-0000-0000-0000-000000000000
       - --password-stdin
-    stdin: "{{ ghcr_token }}"
-  when: ghcr_token | default('') | length > 0
+    stdin: "{{ acr_token | default(app_acr_token.stdout) }}"
   changed_when: false
   no_log: true
 
@@ -156,8 +168,8 @@
         msg: >-
           Deploying Hoard failed at "{{ ansible_failed_task.name }}".
           {% if app_error is search('denied|unauthorized|manifest unknown|not found') %}
-          An image could not be pulled: make the ghcr.io/el-gibbor packages public,
-          or set ghcr_token in vault.yml to a token with read:packages.
+          An image could not be pulled from {{ acr_login_server }}: check that
+          tag {{ image_tag }} was pushed, and that the identity running az has AcrPull.
           {% else %}
           The container status and logs above show the cause.
           {% endif %}
