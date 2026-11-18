@@ -7,4 +7,7 @@ terraform {
       version = "~> 4.0"
     }
   }
+
+  # Settings come from backend.hcl, written by bootstrap.sh: terraform init -backend-config=backend.hcl
+  backend "azurerm" {}
 }
