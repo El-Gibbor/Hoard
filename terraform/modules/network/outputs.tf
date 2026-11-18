@@ -8,12 +8,17 @@ output "location" {
   value       = azurerm_resource_group.this.location
 }
 
-output "subnet_id" {
-  description = "Subnet the VM attaches to."
-  value       = azurerm_subnet.this.id
+output "vnet_id" {
+  description = "Virtual network ID, for private DNS links."
+  value       = azurerm_virtual_network.this.id
 }
 
-output "nsg_id" {
-  description = "Network security group on the subnet."
-  value       = azurerm_network_security_group.this.id
+output "subnet_ids" {
+  description = "Subnet IDs keyed by subnet name."
+  value       = { for k, s in azurerm_subnet.this : k => s.id }
+}
+
+output "nsg_names" {
+  description = "NSG names keyed by subnet name."
+  value       = { for k, n in azurerm_network_security_group.this : k => n.name }
 }
