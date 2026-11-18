@@ -256,10 +256,17 @@ jobs:
             image: hoard-api
             context: .
             file: Dockerfile
+            target: runtime
+          - name: migrate
+            image: hoard-migrate
+            context: .
+            file: Dockerfile
+            target: migrate
           - name: web
             image: hoard-web
             context: frontend
             file: frontend/Dockerfile
+            target: ""
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
@@ -288,6 +295,7 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
           # No build arguments. The frontend Dockerfile already calls the API on its own origin.
           load: true
           provenance: false
@@ -326,6 +334,7 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
           push: true
           provenance: false
           tags: |
