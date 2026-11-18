@@ -59,3 +59,16 @@ module "app" {
   ssh_public_key      = file(pathexpand(var.ssh_public_key_path))
   tags                = local.tags
 }
+
+module "loadbalancer" {
+  source = "./modules/loadbalancer"
+
+  prefix              = var.prefix
+  location            = module.network.location
+  resource_group_name = module.network.resource_group_name
+  tags                = local.tags
+
+  backend_nics = {
+    app = { nic_id = module.app.nic_id, ip_configuration_name = module.app.ip_configuration_name }
+  }
+}

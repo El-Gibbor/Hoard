@@ -1,3 +1,13 @@
+output "app_url" {
+  description = "Public address of Hoard, served by the load balancer."
+  value       = "http://${module.loadbalancer.public_ip}"
+}
+
+output "load_balancer_ip" {
+  description = "Static public IP of the load balancer."
+  value       = module.loadbalancer.public_ip
+}
+
 output "resource_group_name" {
   description = "Resource group that holds this deployment."
   value       = module.network.resource_group_name
