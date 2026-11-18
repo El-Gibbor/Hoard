@@ -13,7 +13,7 @@ Every pull request to `main` and every push to another branch runs these scans i
 | **Dependency audit (backend)** / **(frontend)** | `npm audit` | `backend/` and `frontend/` package locks | A production dependency has a **moderate** or worse advisory, or any dependency (including dev tooling) has a **high** or worse one that is not accepted in [`.npm-audit-allowlist.json`](.npm-audit-allowlist.json). An accepted advisory fails again once its review date passes |
 | **Terraform checks** | `terraform fmt`, `terraform validate`, Checkov 3.4.5 | `terraform/` | Code is unformatted or invalid, or any Checkov check fails without an inline skip and reason |
 | **Ansible lint** | ansible-lint 26.11.0, `production` profile | `ansible/` | Any rule violation |
-| **Docker images (api)** / **(web)** | Trivy 0.62.1 | The built `hoard-api` and `hoard-web` images, OS and Node packages | A **critical** or **high** vulnerability that has a fix. The image is scanned before it is published, so a failing image never reaches the registry |
+| **Docker images (api)** / **(migrate)** / **(web)** | Trivy 0.62.1 | The built `hoard-api`, `hoard-migrate` and `hoard-web` images, OS and Node packages | A **critical** or **high** vulnerability that has a fix. The image is scanned before it is published, so a failing image never reaches the registry |
 
 Production code gets the stricter audit threshold because it is what runs on the server. Dev tooling only runs on developer machines and in CI.
 
@@ -38,6 +38,7 @@ Each scan uploads its report as a workflow artifact: `npm-audit-backend`, `npm-a
 | 13 | Checkov | `CKV2_AZURE_57`: PostgreSQL Flexible Server without a private endpoint (`terraform/modules/database`) | Medium | **Accepted.** The server uses VNet integration instead: it sits in a delegated subnet with public access off, so it has no public address. Its NSG accepts 5432 from the app subnet only. Skipped inline with the reason. |
 | 14 | Checkov | `CKV_AZURE_136`: no geo-redundant database backup | Low | **Accepted.** Doubles the backup cost and needs a paired region the student subscription may not allow. Local backups are kept for 7 days. |
 | 15 | Checkov | Eight ACR checks: seven that need the Premium tier (about $50 a month), for a private endpoint (`CKV_AZURE_139`), content trust, geo-replication, quarantine, retention, zone redundancy and dedicated data endpoints (`CKV_AZURE_164`–`167`, `233`, `237`), plus Defender scanning (`CKV_AZURE_163`) | Medium | **Accepted.** Basic tier, with the admin user and anonymous pull off, so only Entra ID tokens can push or pull. Trivy scans every image in CI and CD before it is pushed, which covers the scanning and quarantine checks. |
+| 16 | Trivy (CD) | `hoard-migrate`: 10 high advisories (`brace-expansion`, `pacote`, `sigstore`, `picomatch`, `ip-address`) in the npm bundled with the Node base image, the same set as finding 8 | High | **Fixed.** Caught by CD's scan on the first deploy, which stopped the image before it reached ACR. CI had only scanned `api` and `web`, so it now builds and scans `migrate` too. The migrate stage deletes npm, npx and corepack like the runtime stage, and runs `prisma` and `tsx` from `node_modules/.bin`. |
 
 ## Controls in place
 

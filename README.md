@@ -349,7 +349,7 @@ Compose reads these from a `.env` file in the repository root. All of them are o
 | **Dependency audit (backend)** and **Dependency audit (frontend)** | Runs `npm audit` against each package lock, then [`scripts/check-npm-audit.mjs`](scripts/check-npm-audit.mjs) on the full report | A production dependency has a moderate or worse vulnerability, or any dependency has a high or worse one that is not accepted, with a reason and review date, in [`.npm-audit-allowlist.json`](.npm-audit-allowlist.json) |
 | **Terraform checks** | Checks formatting, validates [`terraform/`](terraform) and scans it with [Checkov](https://www.checkov.io/) | Code is unformatted, invalid, or fails a Checkov check that is not skipped with a reason |
 | **Ansible lint** | Lints [`ansible/`](ansible) with ansible-lint's `production` profile | Any rule is violated |
-| **Docker images (api)** and **Docker images (web)** | Builds the API image from the root [`Dockerfile`](Dockerfile) and the web image from [`frontend/Dockerfile`](frontend/Dockerfile). Runs only after both check jobs pass. Scans each image with [Trivy](https://trivy.dev/) before it can be published | An image does not build, or has a fixable critical or high vulnerability |
+| **Docker images (api)**, **(migrate)** and **(web)** | Builds the API and migration images from the root [`Dockerfile`](Dockerfile) and the web image from [`frontend/Dockerfile`](frontend/Dockerfile). Runs only after both check jobs pass. Scans each image with [Trivy](https://trivy.dev/) before it can be published | An image does not build, or has a fixable critical or high vulnerability |
 
 Any failing step fails its job, and a failed job marks the pull request red. Which jobs must pass before merging is set by branch protection; see [Branch Protection](#branch-protection).
 
@@ -506,6 +506,7 @@ Each layer checks the one below it, so a failure shows up where it starts:
 | **Frontend checks** status check required | The web app must pass lint, type-check, tests and the build, so broken UI code cannot reach `main` |
 | **Docker images (api)** status check required | The API image must still build and pass the Trivy scan, so a broken or vulnerable container is caught before merging |
 | **Docker images (web)** status check required | The web image must still build and pass the Trivy scan, so a broken or vulnerable container is caught before merging |
+| **Docker images (migrate)** status check required | The image that migrates and seeds the production database must still build and pass the Trivy scan, so CD never finds a vulnerability first |
 | **Dependency audit (backend)** and **Dependency audit (frontend)** status checks required | A vulnerable dependency above the audit threshold cannot reach `main` |
 | **Terraform checks** status check required | Infrastructure code must be formatted, valid and pass Checkov before merging |
 | **Ansible lint** status check required | Playbooks and roles must pass ansible-lint's production profile before merging |
