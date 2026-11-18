@@ -1,0 +1,5 @@
+---
+# TCP ports the host firewall accepts. The Azure NSGs limit who can reach them.
+common_open_ports:
+  - "22"
+  - "80"

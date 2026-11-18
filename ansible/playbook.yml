@@ -1,6 +1,12 @@
 ---
-# Lock the virtual machine down, install Docker, and start Hoard.
-- name: Prepare the Hoard server and start the app
+# Harden the bastion first: it is the only way in to the app VM.
+- name: Harden the bastion
+  hosts: bastion
+  become: true
+  roles:
+    - common
+
+- name: Prepare the app VM and start Hoard
   hosts: hoard
   become: true
   roles:
