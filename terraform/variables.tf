@@ -35,6 +35,12 @@ variable "bastion_vm_size" {
   default     = "Standard_B2ats_v2"
 }
 
+variable "db_sku_name" {
+  description = "Size of the PostgreSQL Flexible Server. Burstable B1ms is the cheapest."
+  type        = string
+  default     = "B_Standard_B1ms"
+}
+
 variable "admin_username" {
   description = "Login user created on the VM."
   type        = string
