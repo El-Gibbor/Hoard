@@ -1,9 +1,6 @@
 ---
-# Tag the Publish workflow pushes from main. Override with -e image_tag=<sha> for one build.
+# CD passes -e image_tag=<commit sha>. A manual run deploys the image CD last tagged main.
 image_tag: main
-
-# GitHub account that owns the container packages.
-ghcr_username: El-Gibbor
 
 hoard_dir: /opt/hoard
 
