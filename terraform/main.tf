@@ -34,6 +34,8 @@ module "network" {
     db = {
       address_prefix = local.subnet_prefixes.db
       delegation     = "Microsoft.DBforPostgreSQL/flexibleServers"
+      # Azure adds this endpoint when it creates the server, for backups and logs. Declaring it keeps apply from removing it.
+      service_endpoints = ["Microsoft.Storage"]
       inbound_rules = {
         postgres-from-app = { priority = 100, port = "5432", source = local.subnet_prefixes.app }
         within-subnet     = { priority = 110, port = "*", source = local.subnet_prefixes.db }

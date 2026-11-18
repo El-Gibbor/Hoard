@@ -27,6 +27,7 @@ resource "azurerm_subnet" "this" {
   resource_group_name  = azurerm_resource_group.this.name
   virtual_network_name = azurerm_virtual_network.this.name
   address_prefixes     = [each.value.address_prefix]
+  service_endpoints    = each.value.service_endpoints
   # Outbound internet goes through the bastion's public IP or the load balancer, never Azure's implicit default.
   default_outbound_access_enabled = false
 

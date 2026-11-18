@@ -17,8 +17,9 @@ variable "address_space" {
 variable "subnets" {
   description = "Subnets keyed by name, each with its own NSG. Inbound rules not listed are denied, apart from Azure's defaults for traffic inside the VNet and from the load balancer."
   type = map(object({
-    address_prefix = string
-    delegation     = optional(string)
+    address_prefix    = string
+    delegation        = optional(string)
+    service_endpoints = optional(list(string), [])
     inbound_rules = optional(map(object({
       priority = number
       port     = string
