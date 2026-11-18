@@ -37,11 +37,16 @@ RUN DATABASE_URL=$BUILD_DATABASE_URL npx prisma generate
 # Keeps the Prisma CLI and tsx, which the lean runtime image does not have
 FROM source AS migrate
 
+# Prisma and tsx run from node_modules/.bin, so the bundled npm and corepack are removed like in the runtime image
+ENV PATH=/app/node_modules/.bin:$PATH
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
+
 # Runs as the unprivileged node user like the API; DATABASE_URL is supplied at run time
 USER node
 
-# Applies pending migrations, then exits; run `npm run db:seed` with this image to seed
-CMD ["npx", "prisma", "migrate", "deploy"]
+# Applies pending migrations, then exits; run `prisma db seed` with this image to seed
+CMD ["prisma", "migrate", "deploy"]
 
 # ---------- Stage 4: compile TypeScript ----------
 FROM source AS build

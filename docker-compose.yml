@@ -33,7 +33,7 @@ services:
       context: .
       target: migrate
     image: hoard-migrate
-    command: ['sh', '-c', 'npx prisma migrate deploy && npm run db:seed']
+    command: ['sh', '-c', 'prisma migrate deploy && prisma db seed']
     environment:
       DATABASE_URL: *database-url
       # The seed loads the app config, which validates the JWT secret
