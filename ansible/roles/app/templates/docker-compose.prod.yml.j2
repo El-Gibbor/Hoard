@@ -6,7 +6,7 @@ services:
   migrate:
     image: "{{ acr_login_server }}/hoard-migrate:{{ image_tag }}"
     profiles: [tools]
-    command: ["sh", "-c", "npx prisma migrate deploy && npm run db:seed"]
+    command: ["sh", "-c", "prisma migrate deploy && prisma db seed"]
     environment:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
