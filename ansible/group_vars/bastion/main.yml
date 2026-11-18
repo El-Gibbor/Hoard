@@ -1,0 +1,4 @@
+---
+# The bastion only forwards SSH.
+common_open_ports:
+  - "22"

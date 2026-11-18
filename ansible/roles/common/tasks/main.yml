@@ -47,24 +47,13 @@
     group: root
     mode: "0644"
 
-# Allow SSH before the firewall is switched on, so this run cannot lock us out.
-- name: Allow SSH
+# Allow the open ports, SSH among them, before the firewall is switched on, so this run cannot lock us out.
+- name: Allow the open ports
   community.general.ufw:
     rule: allow
-    port: "22"
+    port: "{{ item }}"
     proto: tcp
-
-- name: Allow HTTP
-  community.general.ufw:
-    rule: allow
-    port: "80"
-    proto: tcp
-
-- name: Allow HTTPS
-  community.general.ufw:
-    rule: allow
-    port: "443"
-    proto: tcp
+  loop: "{{ common_open_ports }}"
 
 - name: Deny every other inbound connection
   community.general.ufw:
