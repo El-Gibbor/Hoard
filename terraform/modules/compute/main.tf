@@ -1,5 +1,7 @@
 resource "azurerm_public_ip" "this" {
-  name                = "${var.prefix}-ip"
+  count = var.public_ip ? 1 : 0
+
+  name                = "${var.prefix}-${var.name}-ip"
   resource_group_name = var.resource_group_name
   location            = var.location
   allocation_method   = "Static"
@@ -8,8 +10,8 @@ resource "azurerm_public_ip" "this" {
 }
 
 resource "azurerm_network_interface" "this" {
-  #checkov:skip=CKV_AZURE_119:Hoard is opened from a browser and over SSH, so this NIC keeps its public IP. SSH is still limited to admin_ip by the subnet firewall
-  name                  = "${var.prefix}-nic"
+  #checkov:skip=CKV_AZURE_119:Only the bastion gets a public IP, and its subnet accepts SSH from admin_ip alone. The app VM has none
+  name                  = "${var.prefix}-${var.name}-nic"
   location              = var.location
   resource_group_name   = var.resource_group_name
   ip_forwarding_enabled = false
@@ -19,12 +21,12 @@ resource "azurerm_network_interface" "this" {
     name                          = "primary"
     subnet_id                     = var.subnet_id
     private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.this.id
+    public_ip_address_id          = var.public_ip ? azurerm_public_ip.this[0].id : null
   }
 }
 
 resource "azurerm_linux_virtual_machine" "this" {
-  name                            = "${var.prefix}-vm"
+  name                            = "${var.prefix}-${var.name}-vm"
   resource_group_name             = var.resource_group_name
   location                        = var.location
   size                            = var.vm_size
@@ -41,7 +43,7 @@ resource "azurerm_linux_virtual_machine" "this" {
   }
 
   os_disk {
-    name                 = "${var.prefix}-osdisk"
+    name                 = "${var.prefix}-${var.name}-osdisk"
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
   }

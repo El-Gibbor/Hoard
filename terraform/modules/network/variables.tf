@@ -14,22 +14,23 @@ variable "address_space" {
   default     = ["10.0.0.0/16"]
 }
 
-variable "subnet_prefix" {
-  description = "Address range of the subnet the VM joins."
-  type        = string
-  default     = "10.0.1.0/24"
-}
-
-variable "inbound_rules" {
-  description = "Inbound TCP rules, keyed by rule name. Anything not listed is denied."
+variable "subnets" {
+  description = "Subnets keyed by name, each with its own NSG. Inbound rules not listed are denied, apart from Azure's defaults for traffic inside the VNet and from the load balancer."
   type = map(object({
-    priority = number
-    port     = string
-    source   = string
+    address_prefix = string
+    delegation     = optional(string)
+    inbound_rules = optional(map(object({
+      priority = number
+      port     = string
+      source   = string
+      access   = optional(string, "Allow")
+    })), {})
   }))
 
   validation {
-    condition     = alltrue([for r in values(var.inbound_rules) : r.port != "22" || r.source != "*"])
+    condition = alltrue(flatten([
+      for s in values(var.subnets) : [for r in values(s.inbound_rules) : r.port != "22" || !contains(["*", "Internet", "0.0.0.0/0"], r.source)]
+    ]))
     error_message = "SSH (port 22) cannot be open to every address."
   }
 }
