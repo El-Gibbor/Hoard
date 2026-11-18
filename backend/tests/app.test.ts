@@ -1,6 +1,7 @@
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../src/app';
+import { prisma } from '../src/lib/prisma';
 
 describe('GET /api/health', () => {
   it('reports the API as healthy', async () => {
@@ -8,8 +9,22 @@ describe('GET /api/health', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
+    expect(res.body.database).toBe('ok');
     expect(Number.isNaN(Date.parse(res.body.timestamp))).toBe(false);
   });
+
+  it('returns 503 when the database does not answer', async () => {
+    vi.spyOn(prisma, '$queryRaw').mockRejectedValueOnce(new Error('connection refused'));
+
+    const res = await request(app).get('/api/health');
+
+    expect(res.status).toBe(503);
+    expect(res.body).toMatchObject({ status: 'error', database: 'unreachable' });
+  });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('error handling', () => {
