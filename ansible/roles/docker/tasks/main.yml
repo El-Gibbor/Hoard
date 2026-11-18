@@ -44,6 +44,15 @@
     state: present
     update_cache: "{{ docker_repo.changed }}"
 
+- name: Rotate container logs
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Docker
+
 - name: Make sure Docker is running
   ansible.builtin.service:
     name: docker
