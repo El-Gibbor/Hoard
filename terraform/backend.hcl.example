@@ -1,0 +1,5 @@
+resource_group_name  = "hoard-yourname-tfstate-rg"
+storage_account_name = "hoardyournametfstate1a2b3c"
+container_name       = "tfstate"
+key                  = "hoard.tfstate"
+use_azuread_auth     = true
