@@ -56,6 +56,14 @@ ansible-playbook playbook.yml --ask-vault-pass
 
 Run it a second time. When the server is already in the desired state, the recap shows `changed=0`.
 
+**Pin the image tag on manual runs.** CD always deploys with `-e image_tag=<commit sha>`. Without it, the playbook uses `main`, and because images are pulled only when missing, a VM that already has an older `main` image keeps running it. To deploy or re-apply by hand, pass the SHA that is live (the latest **Deploy to Production** run shows it):
+
+```bash
+ansible-playbook playbook.yml --ask-vault-pass -e image_tag=<commit sha>
+```
+
+`ansible.cfg` turns on SSH pipelining, so each task needs one round trip through the bastion instead of several. A run with nothing to change takes about 80 seconds instead of 160.
+
 ## Check the result
 
 On the app VM (`terraform output -raw ssh_command` opens a shell through the bastion):
