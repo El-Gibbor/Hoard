@@ -1,4 +1,12 @@
-# Roles for the CD pipeline's identity: push images, and open SSH on the bastion for its runner during a deploy.
+# Roles for the CD pipeline's identity: read the deployment, push images, and open SSH on the bastion for its runner during a deploy.
+resource "azurerm_role_assignment" "deployer_reader" {
+  count = var.deployer_principal_id == null ? 0 : 1
+
+  scope                = module.network.resource_group_id
+  role_definition_name = "Reader"
+  principal_id         = var.deployer_principal_id
+}
+
 resource "azurerm_role_assignment" "deployer_acr_push" {
   count = var.deployer_principal_id == null ? 0 : 1
 
