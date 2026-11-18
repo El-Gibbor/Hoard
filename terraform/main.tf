@@ -2,6 +2,7 @@ locals {
   subnet_prefixes = {
     bastion = "10.0.1.0/24"
     app     = "10.0.2.0/24"
+    db      = "10.0.3.0/24"
   }
 }
 
@@ -28,6 +29,15 @@ module "network" {
         http             = { priority = 110, port = "80", source = "Internet" }
         lb-probe         = { priority = 120, port = "80", source = "AzureLoadBalancer" }
         deny-vnet        = { priority = 4000, port = "*", source = "VirtualNetwork", access = "Deny" }
+      }
+    }
+    db = {
+      address_prefix = local.subnet_prefixes.db
+      delegation     = "Microsoft.DBforPostgreSQL/flexibleServers"
+      inbound_rules = {
+        postgres-from-app = { priority = 100, port = "5432", source = local.subnet_prefixes.app }
+        within-subnet     = { priority = 110, port = "*", source = local.subnet_prefixes.db }
+        deny-vnet         = { priority = 4000, port = "*", source = "VirtualNetwork", access = "Deny" }
       }
     }
   }
@@ -73,4 +83,16 @@ module "loadbalancer" {
   backend_nics = {
     app = { nic_id = module.app.nic_id, ip_configuration_name = module.app.ip_configuration_name }
   }
+}
+
+module "database" {
+  source = "./modules/database"
+
+  prefix              = var.prefix
+  location            = module.network.location
+  resource_group_name = module.network.resource_group_name
+  vnet_id             = module.network.vnet_id
+  subnet_id           = module.network.subnet_ids["db"]
+  sku_name            = var.db_sku_name
+  tags                = local.tags
 }

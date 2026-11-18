@@ -42,3 +42,24 @@ output "ssh_command" {
   description = "Opens a shell on the app VM through the bastion. The private key is the public key path without .pub."
   value       = "ssh -i ${trimsuffix(pathexpand(var.ssh_public_key_path), ".pub")} -J ${var.admin_username}@${module.bastion.public_ip} ${var.admin_username}@${module.app.private_ip}"
 }
+
+output "database_host" {
+  description = "Private DNS name of the PostgreSQL server. It resolves only inside the VNet."
+  value       = module.database.host
+}
+
+output "database_name" {
+  description = "Database the app uses."
+  value       = module.database.database_name
+}
+
+output "database_username" {
+  description = "PostgreSQL login the app connects as."
+  value       = module.database.admin_username
+}
+
+output "database_password" {
+  description = "PostgreSQL password. Read it with terraform output -raw database_password."
+  value       = module.database.admin_password
+  sensitive   = true
+}
