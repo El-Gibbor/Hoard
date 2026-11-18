@@ -155,12 +155,13 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=moderate
 
-      - name: Audit all dependencies
-        run: npm audit --audit-level=high
-
       - name: Save the audit report
         if: success() || failure()
         run: npm audit --json > npm-audit.json || true
+
+      # An advisory with no fix can be accepted in .npm-audit-allowlist.json, with a reason and a review date.
+      - name: Audit all dependencies
+        run: node ../scripts/check-npm-audit.mjs npm-audit.json
 
       - name: Upload the audit report
         if: success() || failure()
