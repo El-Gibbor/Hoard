@@ -29,6 +29,12 @@ variable "vm_size" {
   default     = "Standard_B2ats_v2"
 }
 
+variable "bastion_vm_size" {
+  description = "Size of the bastion VM. It only forwards SSH, so the smallest available size is enough."
+  type        = string
+  default     = "Standard_B2ats_v2"
+}
+
 variable "admin_username" {
   description = "Login user created on the VM."
   type        = string
@@ -41,13 +47,13 @@ variable "admin_username" {
 }
 
 variable "ssh_public_key_path" {
-  description = "Path to the SSH public key allowed to log in to the VM."
+  description = "Path to the SSH public key allowed to log in to both VMs."
   type        = string
   default     = "~/.ssh/hoard.pub"
 }
 
 variable "admin_ip" {
-  description = "Your public IP in CIDR form (e.g. 203.0.113.10/32). SSH is only allowed from here."
+  description = "Your public IP in CIDR form (e.g. 203.0.113.10/32). SSH to the bastion is only allowed from here."
   type        = string
 
   validation {

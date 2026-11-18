@@ -3,6 +3,17 @@ variable "prefix" {
   type        = string
 }
 
+variable "name" {
+  description = "Role of the VM, added to its resource names (e.g. app, bastion)."
+  type        = string
+}
+
+variable "public_ip" {
+  description = "Give the VM a static public IP. Only the bastion needs one."
+  type        = bool
+  default     = false
+}
+
 variable "location" {
   description = "Azure region for the VM and its address."
   type        = string

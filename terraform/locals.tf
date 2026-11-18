@@ -3,7 +3,7 @@ locals {
     {
       project     = "hoard"
       owner       = var.prefix
-      environment = "formative3"
+      environment = "production"
       managed_by  = "terraform"
     },
     var.tags,
