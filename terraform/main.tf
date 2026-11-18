@@ -20,11 +20,13 @@ module "network" {
         deny-vnet = { priority = 4000, port = "*", source = "VirtualNetwork", access = "Deny" }
       }
     }
+    # deny-vnet also covers the host address the load balancer probes from, so lb-probe allows it first.
     app = {
       address_prefix = local.subnet_prefixes.app
       inbound_rules = {
         ssh-from-bastion = { priority = 100, port = "22", source = local.subnet_prefixes.bastion }
         http             = { priority = 110, port = "80", source = "Internet" }
+        lb-probe         = { priority = 120, port = "80", source = "AzureLoadBalancer" }
         deny-vnet        = { priority = 4000, port = "*", source = "VirtualNetwork", access = "Deny" }
       }
     }
