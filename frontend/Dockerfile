@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Hoard web image. Build from the repository root: docker build -t hoard-web frontend
-# Stages: build (Vite bundle) -> runtime (nginx serving the bundle and proxying /api)
+# Stages: build (Vite bundle) -> apk-index (Alpine package lists) -> runtime (nginx serving the bundle and proxying /api)
 
 # ---------- Stage 1: build the static bundle ----------
 # Same pinned Node image as the API, so both images build on an identical base
@@ -26,13 +26,28 @@ ARG VITE_API_URL=""
 # Type-check and bundle into dist/; Vite bakes VITE_API_URL into the JavaScript
 RUN VITE_API_URL="$VITE_API_URL" npm run build
 
-# ---------- Stage 2: runtime (default target) ----------
+# ---------- Stage 2: Alpine package lists ----------
+# Remote ADDs are checked on every build, so this stage changes whenever Alpine publishes package updates.
+# Must match the Alpine release of the runtime base image below.
+FROM scratch AS apk-index
+ADD https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/APKINDEX.tar.gz /main.tar.gz
+ADD https://dl-cdn.alpinelinux.org/alpine/v3.24/community/x86_64/APKINDEX.tar.gz /community.tar.gz
+
+# ---------- Stage 3: runtime (default target) ----------
 # Exact version plus digest; this nginx build runs as a non-root user and listens on 8080
 FROM nginxinc/nginx-unprivileged:1.30.6-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03 AS runtime
 
-# Alpine fixes reach the repositories before a new base image is published
+# nginx.org publishes fixed nginx packages before this image is rebuilt, so install the fixed release
+# from their signed repository. Remove the bundled modules first: the site loads none of them, and
+# they hold nginx at the old version and pull in libxml2, libxslt and libgd.
+ARG NGINX_VERSION=1.30.8-r1
 USER root
-RUN apk upgrade --no-cache
+RUN apk del --no-cache nginx-module-geoip nginx-module-image-filter nginx-module-njs nginx-module-xslt \
+ && apk add --no-cache --repository https://nginx.org/packages/alpine/v3.24/main "nginx=${NGINX_VERSION}"
+
+# Alpine fixes reach the repositories before a new base image is published.
+# Mounting the package lists ties this layer's cache to them, so a cached layer can't hide new fixes.
+RUN --mount=type=bind,from=apk-index,target=/tmp/apk-index apk upgrade --no-cache
 
 # Replaces the default site with SPA routing, caching rules and the /api proxy
 COPY nginx.conf /etc/nginx/conf.d/default.conf
