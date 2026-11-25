@@ -31,7 +31,7 @@ export const SignInPage = () => {
   return (
     <main className="card">
       <h1>Sign in</h1>
-      <p>Use the email and password for your Hoard account.</p>
+      <p>Welcome back to Hoard. Sign in to see your collection.</p>
       <form onSubmit={onSubmit} noValidate>
         {error?.message ? <p role="alert">{error.message}</p> : null}
         <label>
